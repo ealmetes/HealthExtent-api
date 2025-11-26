@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HealthExtent.Api", "HealthExtent.Api.csproj", "{99465B1B-E69C-C3CB-FDE0-E11C71F0716D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{99465B1B-E69C-C3CB-FDE0-E11C71F0716D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{99465B1B-E69C-C3CB-FDE0-E11C71F0716D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{99465B1B-E69C-C3CB-FDE0-E11C71F0716D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{99465B1B-E69C-C3CB-FDE0-E11C71F0716D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {721547DE-1934-4ECE-8955-F976A820276C}
+	EndGlobalSection
+EndGlobal

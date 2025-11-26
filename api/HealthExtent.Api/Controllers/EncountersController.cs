@@ -52,7 +52,7 @@ public class EncountersController : ControllerBase
     [HttpGet("{encounterKey}")]
     [ProducesResponseType(typeof(EncounterDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<EncounterDto>> GetEncounter(long encounterKey, [FromQuery] int tenantKey)
+    public async Task<ActionResult<EncounterDto>> GetEncounter(long encounterKey, [FromQuery] string tenantKey)
     {
         var encounter = await _service.GetEncounterByKeyAsync(encounterKey, tenantKey);
 
@@ -69,7 +69,7 @@ public class EncountersController : ControllerBase
     [ProducesResponseType(typeof(IEnumerable<EncounterDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<EncounterDto>>> GetEncountersByPatient(
         long patientKey,
-        [FromQuery] int tenantKey)
+        [FromQuery] string tenantKey)
     {
         var encounters = await _service.GetEncountersByPatientAsync(patientKey, tenantKey);
         return Ok(encounters);
@@ -81,11 +81,51 @@ public class EncountersController : ControllerBase
     [HttpGet("tenant/{tenantKey}")]
     [ProducesResponseType(typeof(IEnumerable<EncounterDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<EncounterDto>>> GetEncountersByTenant(
-        int tenantKey,
+        string tenantKey,
         [FromQuery] int skip = 0,
         [FromQuery] int take = 100)
     {
         var encounters = await _service.GetEncountersByTenantAsync(tenantKey, skip, take);
+        return Ok(encounters);
+    }
+
+    /// <summary>
+    /// Get encounter counts by VisitStatus (Admitted/Discharged) excluding those already in CareTransition
+    /// </summary>
+    [HttpGet("counts")]
+    [ProducesResponseType(typeof(EncounterCountsDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<EncounterCountsDto>> GetEncounterCounts([FromQuery] string tenantKey)
+    {
+        var counts = await _service.GetEncounterCountsAsync(tenantKey);
+        return Ok(counts);
+    }
+
+    /// <summary>
+    /// Get all admitted encounters (not in CareTransition) with pagination
+    /// </summary>
+    [HttpGet("admitted")]
+    [ProducesResponseType(typeof(IEnumerable<AdmittedEncounterDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<AdmittedEncounterDto>>> GetAdmittedEncounters(
+        [FromQuery] string tenantKey,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 100)
+    {
+        var encounters = await _service.GetAdmittedEncountersAsync(tenantKey, skip, take);
+        return Ok(encounters);
+    }
+
+    /// <summary>
+    /// Get all discharged encounters (from CareTransition) with optional status filter and pagination. Defaults to Status = "Open" if no status provided.
+    /// </summary>
+    [HttpGet("discharged")]
+    [ProducesResponseType(typeof(IEnumerable<DischargedEncounterDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<DischargedEncounterDto>>> GetDischargedEncounters(
+        [FromQuery] string tenantKey,
+        [FromQuery] string? status = null,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 100)
+    {
+        var encounters = await _service.GetDischargedEncountersAsync(tenantKey, status, skip, take);
         return Ok(encounters);
     }
 }

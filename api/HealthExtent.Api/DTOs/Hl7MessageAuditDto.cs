@@ -2,7 +2,7 @@ namespace HealthExtent.Api.DTOs;
 
 public class Hl7MessageAuditDto
 {
-    public int TenantKey { get; set; }
+    public string TenantKey { get; set; } = string.Empty;
     public string MessageControlId { get; set; } = string.Empty;
     public string MessageType { get; set; } = string.Empty;
     public DateTime? EventTimestamp { get; set; }
@@ -16,7 +16,7 @@ public class Hl7MessageAuditDto
 
 public class WriteAuditRequest
 {
-    public int TenantKey { get; set; }
+    public string TenantKey { get; set; } = string.Empty;
     public string MessageControlId { get; set; } = string.Empty;
     public string MessageType { get; set; } = string.Empty;
     public string? EventTimestamp_TS { get; set; }  // HL7 timestamp format

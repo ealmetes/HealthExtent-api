@@ -7,12 +7,29 @@ import { ErrorAlert } from '../shared/ErrorAlert';
 import { format, subMonths, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { getTenantMembers, type MemberHP } from '@/services/members-service';
 import { useFirebaseAuth } from '@/hooks/useFirebaseAuth';
+import { KpiCard } from './KpiCard';
+import { TodaysWorkloadPanel } from './TodaysWorkloadPanel';
+import { OverdueAlertsCard } from './OverdueAlertsCard';
+import type { OverdueAlert } from '@/types/dashboard';
 
 
 export function DashboardHome() {
   const { tenantKey } = useFirebaseAuth();
   const navigate = useNavigate();
   const [teamMembers, setTeamMembers] = useState<MemberHP[]>([]);
+
+  // Accordion state - all panels open by default
+  const [expandedPanels, setExpandedPanels] = useState({
+    workload: true,
+    alerts: true,
+    metrics: true,
+    charts: true,
+    transitions: true,
+  });
+
+  const togglePanel = (panel: keyof typeof expandedPanels) => {
+    setExpandedPanels(prev => ({ ...prev, [panel]: !prev[panel] }));
+  };
 
   // Fetch care transitions for metrics
   const { data: careTransitions, isLoading: isLoadingCT, error: ctError } = useQuery({
@@ -242,6 +259,148 @@ export function DashboardHome() {
     ? Math.round((tcmMetrics.followUpWithin14Days / Math.max(tcmMetrics.totalOpen + tcmMetrics.totalInProgress, 1)) * 100)
     : 0;
 
+  // Calculate today's workload metrics
+  const todaysWorkload = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Outreach due today
+    const outreachDueToday = careTransitions?.data?.filter((ct) => {
+      if (!ct.nextOutreachDate || ct.status === 'Closed') return false;
+      const outreachDate = parseISO(ct.nextOutreachDate);
+      return outreachDate >= today && outreachDate < tomorrow;
+    }).length || 0;
+
+    // Follow-ups due today (encounters discharged 7-14 days ago)
+    const followupsDueToday = encounters?.data?.filter((enc) => {
+      const dischargeDate = enc.dischargeDateTime || enc.dischargeDate;
+      if (!dischargeDate) return false;
+      const discharge = parseISO(dischargeDate);
+      const daysSinceDischarge = Math.floor((now.getTime() - discharge.getTime()) / (1000 * 60 * 60 * 24));
+      return daysSinceDischarge >= 7 && daysSinceDischarge <= 14;
+    }).length || 0;
+
+    // High-risk discharges (discharged in last 48 hours)
+    const twoDaysAgo = new Date(now);
+    twoDaysAgo.setDate(now.getDate() - 2);
+    const highRiskDischarges = encounters?.data?.filter((enc) => {
+      const dischargeDate = enc.dischargeDateTime || enc.dischargeDate;
+      if (!dischargeDate) return false;
+      const discharge = parseISO(dischargeDate);
+      return discharge >= twoDaysAgo && discharge <= now;
+    }).length || 0;
+
+    // TCM overdue (missed 2-day contact window)
+    const tcmOverdue = careTransitions?.data?.filter((ct) => {
+      if (ct.status === 'Closed') return false;
+      const dischargeDate = ct.encounter?.dischargeDateTime || ct.dischargeDateTime;
+      if (!dischargeDate) return false;
+      const discharge = parseISO(dischargeDate);
+      const daysSinceDischarge = Math.floor((now.getTime() - discharge.getTime()) / (1000 * 60 * 60 * 24));
+      // Check if more than 2 days since discharge and no outreach logged yet
+      return daysSinceDischarge > 2 && !ct.outreachDate;
+    }).length || 0;
+
+    return {
+      outreachDueToday,
+      followupsDueToday,
+      highRiskDischarges,
+      tcmOverdue,
+    };
+  }, [careTransitions?.data, encounters?.data]);
+
+  // Calculate overdue alerts
+  const overdueAlerts = useMemo(() => {
+    const now = new Date();
+    const alerts: OverdueAlert[] = [];
+
+    // Helper function to get patient name safely (using same pattern as Recent Care Transitions table)
+    const getPatientName = (item: any): string => {
+      // Use the exact same pattern that works in the Recent Care Transitions table
+      const patientKey = item.patientKey || item.PatientKey;
+      const patientName = item.patient.firstName + " " + item.patient.lastName
+      return patientName || (patientKey ? `Patient ${patientKey}` : 'Unknown Patient');
+    };
+
+    // Helper function to generate unique alert ID even when key is undefined
+    const generateUniqueId = (type: string, key: string | undefined, patientKey: string | undefined, index: number): string => {
+      if (key) return `${type}-${key}`;
+      // Fallback: use patientKey + index to ensure uniqueness
+      const fallbackKey = patientKey || `unknown-${index}`;
+      return `${type}-${fallbackKey}-${index}`;
+    };
+
+    // Overdue outreach
+    const overdueOutreach = careTransitions?.data?.filter((ct) => {
+      if (!ct.nextOutreachDate || ct.status === 'Closed') return false;
+      return parseISO(ct.nextOutreachDate) < now;
+    }) || [];
+
+    overdueOutreach.forEach((ct, index) => {
+      const outreachDate = parseISO(ct.nextOutreachDate!);
+      const daysOverdue = Math.floor((now.getTime() - outreachDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      alerts.push({
+        id: generateUniqueId('outreach', ct.careTransitionKey, ct.patientKey, index),
+        type: 'outreach',
+        patientName: getPatientName(ct),
+        daysOverdue,
+        details: `Outreach was due ${format(outreachDate, 'MMM dd, yyyy')}`,
+      });
+    });
+
+    // Overdue follow-ups (>14 days since discharge)
+    const overdueFollowups = encounters?.data?.filter((enc) => {
+      const dischargeDate = enc.dischargeDateTime || enc.dischargeDate;
+      if (!dischargeDate) return false;
+      const discharge = parseISO(dischargeDate);
+      const daysSinceDischarge = Math.floor((now.getTime() - discharge.getTime()) / (1000 * 60 * 60 * 24));
+      return daysSinceDischarge > 14;
+    }) || [];
+
+    overdueFollowups.forEach((enc, index) => {
+      const dischargeDateStr = enc.dischargeDateTime || enc.dischargeDate;
+      const dischargeDate = parseISO(dischargeDateStr!);
+      const daysOverdue = Math.floor((now.getTime() - dischargeDate.getTime()) / (1000 * 60 * 60 * 24)) - 14;
+      alerts.push({
+        id: generateUniqueId('followup', enc.encounterKey, enc.patientKey, index),
+        type: 'followup',
+        patientName: getPatientName(enc),
+        daysOverdue,
+        details: `Discharged ${format(dischargeDate, 'MMM dd, yyyy')}`,
+      });
+    });
+
+    // Readmissions needing review
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(now.getDate() - 30);
+    const readmissions = encounters?.data?.filter((enc) => {
+      const isReadmitted = enc.visitStatus?.toUpperCase() === 'READMITTED' || enc.visitStatus?.toUpperCase() === 'R';
+      const admissionDate = enc.admitDateTime || enc.admissionDate;
+      if (!isReadmitted || !admissionDate) return false;
+      const admitDate = parseISO(admissionDate);
+      return admitDate >= thirtyDaysAgo && admitDate <= now;
+    }) || [];
+
+    readmissions.forEach((enc, index) => {
+      const admissionDateStr = enc.admitDateTime || enc.admissionDate;
+      const admitDate = parseISO(admissionDateStr!);
+      const daysAgo = Math.floor((now.getTime() - admitDate.getTime()) / (1000 * 60 * 60 * 24));
+      alerts.push({
+        id: generateUniqueId('readmission', enc.encounterKey, enc.patientKey, index),
+        type: 'readmission',
+        patientName: getPatientName(enc),
+        daysOverdue: daysAgo,
+        details: `Readmitted ${format(admitDate, 'MMM dd, yyyy')}`,
+      });
+    });
+
+    // Sort by days overdue (most urgent first)
+    return alerts.sort((a, b) => b.daysOverdue - a.daysOverdue);
+  }, [careTransitions?.data, encounters?.data]);
+
   if (isLoadingCT || isLoadingEnc) {
     return <LoadingSpinner />;
   }
@@ -256,150 +415,212 @@ export function DashboardHome() {
         </p>
       </div>
 
-      {/* Executive Summary - Top Metrics */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Total Active Encounters */}
-        <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-5" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' }}>
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="rounded-full bg-gradient-to-br from-blue-500 to-blue-600 p-3">
-                <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </div>
-            </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-[#888888] truncate">Active Encounters</dt>
-                <dd className="text-3xl font-semibold text-white">{executiveMetrics.activeEncounters}</dd>
-              </dl>
-            </div>
+      {/* Today's Workload Panel */}
+      <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg overflow-hidden">
+        <button
+          onClick={() => togglePanel('workload')}
+          className="w-full px-6 py-4 flex items-center justify-between hover:bg-[#252525] transition-colors"
+        >
+          <h3 className="text-lg font-semibold text-white">Today's Workload</h3>
+          <svg
+            className={`w-5 h-5 text-[#888888] transition-transform ${expandedPanels.workload ? 'rotate-180' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {expandedPanels.workload && (
+          <div className="px-6 pb-6">
+            <TodaysWorkloadPanel
+              outreachDueToday={todaysWorkload.outreachDueToday}
+              followupsDueToday={todaysWorkload.followupsDueToday}
+              highRiskDischarges={todaysWorkload.highRiskDischarges}
+              tcmOverdue={todaysWorkload.tcmOverdue}
+              onOutreachClick={() => navigate('/app/care-transitions?filter=outreach-due')}
+              onFollowupsClick={() => navigate('/app/care-transitions?filter=followup-due')}
+              onHighRiskClick={() => navigate('/app/discharge-summaries?filter=high-risk')}
+              onTcmOverdueClick={() => navigate('/app/care-transitions?filter=tcm-overdue')}
+            />
           </div>
-        </div>
-
-        {/* Patients Admitted This Month */}
-        <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-5" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' }}>
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="rounded-full bg-gradient-to-br from-green-500 to-green-600 p-3">
-                <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                </svg>
-              </div>
-            </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-[#888888] truncate">Admitted (Month)</dt>
-                <dd className="text-3xl font-semibold text-white">{executiveMetrics.admittedThisMonth}</dd>
-              </dl>
-            </div>
-          </div>
-        </div>
-
-        {/* Patients Discharged This Month */}
-        <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-5" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' }}>
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="rounded-full bg-gradient-to-br from-purple-500 to-purple-600 p-3">
-                <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-              </div>
-            </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-[#888888] truncate">Discharged (Month)</dt>
-                <dd className="text-3xl font-semibold text-white">{executiveMetrics.dischargedThisMonth}</dd>
-              </dl>
-            </div>
-          </div>
-        </div>
-
-        {/* Average Length of Stay */}
-        <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-5" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' }}>
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 p-3">
-                <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-[#888888] truncate">Avg Length of Stay</dt>
-                <dd className="text-3xl font-semibold text-white">{executiveMetrics.avgLOS.toFixed(1)} <span className="text-sm text-[#888888]">days</span></dd>
-              </dl>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Secondary Metrics Row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {/* Active Care Transitions */}
-        <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-5" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' }}>
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="rounded-full bg-gradient-to-br from-cyan-500 to-cyan-600 p-3">
-                <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-            </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-[#888888] truncate">Active Care Transitions</dt>
-                <dd className="text-3xl font-semibold text-white">{executiveMetrics.activeCareTransitions}</dd>
-              </dl>
-            </div>
-          </div>
-        </div>
-
-        {/* Pending Follow-Ups */}
-        <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-5" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' }}>
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="rounded-full bg-gradient-to-br from-yellow-500 to-yellow-600 p-3">
-                <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-            </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-[#888888] truncate">Pending Follow-Ups</dt>
-                <dd className="text-3xl font-semibold text-white">{executiveMetrics.pendingFollowUps}</dd>
-              </dl>
-            </div>
-          </div>
-        </div>
-
-        {/* 30-Day Readmission Rate - Clickable */}
+      {/* Overdue Alerts */}
+      <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg overflow-hidden">
         <button
-          onClick={() => navigate('/app/discharge-summaries?visitStatus=Readmitted')}
-          className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-5 hover:bg-[#2A2A2A] transition-colors cursor-pointer text-left w-full"
-          style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' }}
+          onClick={() => togglePanel('alerts')}
+          className="w-full px-6 py-4 flex items-center justify-between hover:bg-[#252525] transition-colors"
         >
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="rounded-full bg-gradient-to-br from-red-500 to-red-600 p-3">
-                <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </div>
-            </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-[#888888] truncate">30-Day Readmission Rate</dt>
-                <dd className="text-3xl font-semibold text-white">{executiveMetrics.readmissionRate}<span className="text-sm text-[#888888]">%</span></dd>
-              </dl>
-            </div>
-          </div>
+          <h3 className="text-lg font-semibold text-white">Overdue Alerts</h3>
+          <svg
+            className={`w-5 h-5 text-[#888888] transition-transform ${expandedPanels.alerts ? 'rotate-180' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
         </button>
+        {expandedPanels.alerts && (
+          <div className="p-6 pt-0">
+            <OverdueAlertsCard
+              overdueOutreachCount={overdueAlerts.filter(a => a.type === 'outreach').length}
+              overdueFollowupCount={overdueAlerts.filter(a => a.type === 'followup').length}
+              readmissionsNeedingReview={overdueAlerts.filter(a => a.type === 'readmission').length}
+              tcmOverdueCount={overdueAlerts.filter(a => a.type === 'tcm').length}
+              alerts={overdueAlerts}
+              onViewAll={() => navigate('/app/care-transitions?filter=overdue')}
+              onAlertClick={(alert) => {
+                // Extract the key from alert ID
+                const idParts = alert.id.split('-');
+                const key = idParts[1];
+
+                // Only navigate if we have a valid key (not a fallback ID)
+                if (!key || key === 'unknown' || idParts.length > 2) {
+                  console.warn('Cannot navigate: Invalid or missing record key for alert', alert);
+                  return;
+                }
+
+                if (alert.type === 'outreach' || alert.type === 'tcm') {
+                  navigate(`/app/care-transitions/${key}`);
+                } else if (alert.type === 'followup' || alert.type === 'readmission') {
+                  navigate(`/app/discharge-summaries/${key}`);
+                }
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Executive Summary - Top Metrics */}
+      <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg overflow-hidden">
+        <button
+          onClick={() => togglePanel('metrics')}
+          className="w-full px-6 py-4 flex items-center justify-between hover:bg-[#252525] transition-colors"
+        >
+          <h3 className="text-lg font-semibold text-white">Key Metrics</h3>
+          <svg
+            className={`w-5 h-5 text-[#888888] transition-transform ${expandedPanels.metrics ? 'rotate-180' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {expandedPanels.metrics && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 p-6">
+        <KpiCard
+          title="Active Encounters"
+          value={executiveMetrics.activeEncounters}
+          icon={
+            <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          }
+          onClick={() => navigate('/app/discharge-summaries')}
+          tooltip="Click to view all encounters"
+        />
+
+                <KpiCard
+          title="Active Care Transitions"
+          value={executiveMetrics.activeCareTransitions}
+          icon={
+            <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          }
+          onClick={() => navigate('/app/care-transitions')}
+          tooltip="Click to view all care transitions"
+        />
+
+        <KpiCard
+          title="Admitted (Month)"
+          value={executiveMetrics.admittedThisMonth}
+          icon={
+            <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+          }
+          onClick={() => navigate('/app/discharge-summaries?filter=admitted-this-month')}
+          variant="success"
+          tooltip="Patients admitted this month"
+        />
+
+        <KpiCard
+          title="Discharged (Month)"
+          value={executiveMetrics.dischargedThisMonth}
+          icon={
+            <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          }
+          onClick={() => navigate('/app/discharge-summaries?filter=discharged-this-month')}
+          tooltip="Patients discharged this month"
+        />
+
+
+
+
+        <KpiCard
+          title="Avg Length of Stay"
+          value={`${executiveMetrics.avgLOS.toFixed(1)} days`}
+          icon={
+            <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          }
+          tooltip="Average length of stay for completed encounters"
+        />
+        <KpiCard
+          title="Pending Follow-Ups"
+          value={executiveMetrics.pendingFollowUps}
+          icon={
+            <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          }
+          onClick={() => navigate('/app/care-transitions?filter=pending-followups')}
+          variant="warning"
+          tooltip="Scheduled follow-ups"
+        />
+
+        {/* <KpiCard
+          title="30-Day Readmission Rate"
+          value={`${executiveMetrics.readmissionRate}%`}
+          icon={
+            <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          }
+          onClick={() => navigate('/app/discharge-summaries?visitStatus=Readmitted')}
+          variant={executiveMetrics.readmissionRate > 15 ? 'danger' : executiveMetrics.readmissionRate > 10 ? 'warning' : 'default'}
+          tooltip="Click to view readmitted patients"
+        /> */}
+          </div>
+        )}
       </div>
 
       {/* Charts Row */}
+      <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg overflow-hidden">
+        <button
+          onClick={() => togglePanel('charts')}
+          className="w-full px-6 py-4 flex items-center justify-between hover:bg-[#252525] transition-colors"
+        >
+          <h3 className="text-lg font-semibold text-white">Charts & Analytics</h3>
+          <svg
+            className={`w-5 h-5 text-[#888888] transition-transform ${expandedPanels.charts ? 'rotate-180' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {expandedPanels.charts && (
+          <div className="p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Monthly Admissions & Discharges */}
         <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-6" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' }}>
@@ -444,50 +665,66 @@ export function DashboardHome() {
         <div className="space-y-6">
           {/* TCM Compliance Metrics */}
           <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-6" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' }}>
-            <h3 className="text-lg font-semibold text-white mb-4">TCM Compliance</h3>
-            <div className="space-y-4">
-              {/* Contact Within 2 Days */}
-              <div>
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-[#E0E0E0]">2-Day Contact Rate</span>
-                  <span className="text-white font-semibold">{tcmComplianceRate}%</span>
-                </div>
-                <div className="relative h-3 bg-[#0A0A0A] rounded-full overflow-hidden">
-                  <div
-                    className={`absolute top-0 left-0 h-full rounded-full transition-all ${
-                      tcmComplianceRate >= 90
-                        ? 'bg-gradient-to-r from-green-500 to-green-600'
-                        : tcmComplianceRate >= 70
-                        ? 'bg-gradient-to-r from-yellow-500 to-yellow-600'
-                        : 'bg-gradient-to-r from-red-500 to-red-600'
-                    }`}
-                    style={{ width: `${tcmComplianceRate}%` }}
-                  ></div>
-                </div>
+            <h3 className="text-lg font-semibold text-white mb-6">TCM Compliance</h3>
+            <div className="space-y-6">
+              {/* Pie Chart */}
+              <div className="flex items-center justify-center">
+                <svg width="180" height="180" viewBox="0 0 180 180" className="transform -rotate-90">
+                  {/* 2-Day Contact Rate segment - GREEN */}
+                  <circle
+                    cx="90"
+                    cy="90"
+                    r="70"
+                    fill="none"
+                    stroke="#22c55e"
+                    strokeWidth="40"
+                    strokeDasharray={`${(tcmComplianceRate / 100) * 439.6} 439.6`}
+                    className="transition-all duration-500"
+                  />
+                  {/* 14-Day Follow-up Rate segment - YELLOW */}
+                  <circle
+                    cx="90"
+                    cy="90"
+                    r="70"
+                    fill="none"
+                    stroke="#eab308"
+                    strokeWidth="40"
+                    strokeDasharray={`${(followUpRate / 100) * 439.6} 439.6`}
+                    strokeDashoffset={`-${(tcmComplianceRate / 100) * 439.6}`}
+                    className="transition-all duration-500"
+                  />
+                  {/* Center circle for donut effect */}
+                  <circle cx="90" cy="90" r="50" fill="#1E1E1E" />
+                  {/* Center text */}
+                  <text x="90" y="85" textAnchor="middle" className="fill-white text-2xl font-bold transform rotate-90" style={{ transformOrigin: '90px 90px' }}>
+                    {Math.round((tcmComplianceRate + followUpRate) / 2)}%
+                  </text>
+                  <text x="90" y="102" textAnchor="middle" className="fill-[#888888] text-xs transform rotate-90" style={{ transformOrigin: '90px 90px' }}>
+                    Avg
+                  </text>
+                </svg>
               </div>
 
-              {/* Follow-up Within 14 Days */}
-              <div>
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-[#E0E0E0]">14-Day Follow-up Rate</span>
-                  <span className="text-white font-semibold">{followUpRate}%</span>
+              {/* Legend */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span className="text-sm text-[#E0E0E0]">2-Day Contact</span>
+                  </div>
+                  <span className="text-sm font-semibold text-white">{tcmComplianceRate}%</span>
                 </div>
-                <div className="relative h-3 bg-[#0A0A0A] rounded-full overflow-hidden">
-                  <div
-                    className={`absolute top-0 left-0 h-full rounded-full transition-all ${
-                      followUpRate >= 90
-                        ? 'bg-gradient-to-r from-green-500 to-green-600'
-                        : followUpRate >= 70
-                        ? 'bg-gradient-to-r from-yellow-500 to-yellow-600'
-                        : 'bg-gradient-to-r from-red-500 to-red-600'
-                    }`}
-                    style={{ width: `${followUpRate}%` }}
-                  ></div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <span className="text-sm text-[#E0E0E0]">14-Day Follow-up</span>
+                  </div>
+                  <span className="text-sm font-semibold text-white">{followUpRate}%</span>
                 </div>
               </div>
 
               {/* Avg Outreach Attempts */}
-              <div className="pt-2 border-t border-[#2A2A2A]">
+              <div className="pt-3 border-t border-[#2A2A2A]">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-[#888888]">Avg Outreach Attempts</span>
                   <span className="text-lg font-semibold text-white">
@@ -497,63 +734,38 @@ export function DashboardHome() {
               </div>
             </div>
           </div>
-
-          {/* Risk Distribution */}
-          <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-6" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' }}>
-            <h3 className="text-lg font-semibold text-white mb-4">Risk Distribution</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                  <span className="text-sm text-[#E0E0E0]">High Risk</span>
-                </div>
-                <span className="text-lg font-semibold text-white">{ctMetrics.highRisk}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                  <span className="text-sm text-[#E0E0E0]">Low Risk</span>
-                </div>
-                <span className="text-lg font-semibold text-white">{ctMetrics.lowRisk}</span>
-              </div>
-            </div>
-            <div className="mt-4 pt-4 border-t border-[#2A2A2A]">
-              <div className="relative h-4 bg-[#0A0A0A] rounded-full overflow-hidden flex">
-                {ctMetrics.total > 0 && (
-                  <>
-                    <div
-                      className="bg-red-500"
-                      style={{ width: `${(ctMetrics.highRisk / ctMetrics.total) * 100}%` }}
-                    ></div>
-                    <div
-                      className="bg-yellow-500"
-                      style={{ width: `${(ctMetrics.mediumRisk / ctMetrics.total) * 100}%` }}
-                    ></div>
-                    <div
-                      className="bg-green-500"
-                      style={{ width: `${(ctMetrics.lowRisk / ctMetrics.total) * 100}%` }}
-                    ></div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
+      </div>
+          </div>
+        )}
       </div>
 
       {/* Recent Care Transitions */}
-      <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg" style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' }}>
-        <div className="px-6 py-5 border-b border-[#2A2A2A]">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white">Recent Care Transitions</h2>
+      <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg overflow-hidden">
+        <button
+          onClick={() => togglePanel('transitions')}
+          className="w-full px-6 py-4 flex items-center justify-between hover:bg-[#252525] transition-colors"
+        >
+          <h3 className="text-lg font-semibold text-white">Recent Care Transitions</h3>
+          <div className="flex items-center gap-3">
             <Link
               to="/app/care-transitions"
               className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+              onClick={(e) => e.stopPropagation()}
             >
               View all →
             </Link>
+            <svg
+              className={`w-5 h-5 text-[#888888] transition-transform ${expandedPanels.transitions ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
-        </div>
+        </button>
+        {expandedPanels.transitions && (
         <div>
           {(() => {
             // Filter out closed care transitions
@@ -650,6 +862,7 @@ export function DashboardHome() {
             );
           })()}
         </div>
+        )}
       </div>
     </div>
   );

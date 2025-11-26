@@ -1,0 +1,40 @@
+# Ignore build outputs
+bin/
+obj/
+publish/
+*.zip
+
+# Ignore user-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Ignore NuGet packages
+*.nupkg
+*.snupkg
+packages/
+
+# Ignore logs
+*.log
+logs/
+
+# Ignore test results
+TestResults/
+
+# Ignore VS Code
+.vscode/
+.vs/
+
+# Ignore Git
+.git/
+.gitignore
+.gitattributes
+
+# Ignore documentation
+*.md
+!README.md
+
+# Ignore development files
+appsettings.Development.json
+*.Development.json

@@ -10,7 +10,8 @@ namespace HealthExtent.Api.Models;
 public class Hl7MessageAudit
 {
     [Required]
-    public int TenantKey { get; set; }
+    [MaxLength(64)]
+    public string TenantKey { get; set; } = string.Empty;
 
     [Required]
     [MaxLength(64)]
@@ -39,9 +40,6 @@ public class Hl7MessageAudit
     public string? ErrorText { get; set; }
 
     // Navigation properties
-    [ForeignKey(nameof(TenantKey))]
-    public virtual Tenant? Tenant { get; set; }
-
     [ForeignKey(nameof(SourceKey))]
     public virtual Hl7Source? Source { get; set; }
 

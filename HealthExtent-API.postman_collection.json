@@ -1,0 +1,781 @@
+{
+	"info": {
+		"_postman_id": "healthextent-api-collection",
+		"name": "HealthExtent API",
+		"description": "Multi-tenant Healthcare API for HL7 message processing and care transitions.\n\n## Authentication\nAll endpoints (except /health) require JWT Bearer token authentication.\n\n## Base URL\nProduction: http://he-api-dev-eus2.eastus2.azurecontainer.io:8080\n\n## Environment Variables\nSet these in Postman environment:\n- `baseUrl` - API base URL\n- `token` - JWT authentication token\n- `tenantKey` - Your tenant identifier",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{token}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "Health",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health"
+							]
+						},
+						"description": "Check API health status. No authentication required."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Generate Token (Development Only)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Automatically save token to environment",
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.environment.set(\"token\", jsonData.token);",
+									"    console.log(\"Token saved to environment:\", jsonData.token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"test\",\n  \"tenantKey\": \"{{tenantKey}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/token",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"token"
+							]
+						},
+						"description": "Generate JWT token for authentication.\n\n**Note:** This endpoint is only available in Development mode. In Production, use pre-configured authentication."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Patients",
+			"item": [
+				{
+					"name": "Get All Patients",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/patients/tenant/{{tenantKey}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"patients",
+								"tenant",
+								"{{tenantKey}}"
+							]
+						},
+						"description": "Get all patients for the specified tenant."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Patient by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/patients/:id/tenant/{{tenantKey}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"patients",
+								":id",
+								"tenant",
+								"{{tenantKey}}"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Patient ID"
+								}
+							]
+						},
+						"description": "Get a specific patient by ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Patient",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"mrn\": \"MRN12345\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"dateOfBirth\": \"1980-01-15\",\n  \"gender\": \"M\",\n  \"ssn\": \"123-45-6789\",\n  \"address\": \"123 Main St\",\n  \"city\": \"New York\",\n  \"state\": \"NY\",\n  \"zipCode\": \"10001\",\n  \"phoneNumber\": \"555-123-4567\",\n  \"email\": \"john.doe@example.com\",\n  \"tenantKey\": \"{{tenantKey}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/patients",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"patients"
+							]
+						},
+						"description": "Create a new patient record."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Patient",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": 1,\n  \"mrn\": \"MRN12345\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"dateOfBirth\": \"1980-01-15\",\n  \"gender\": \"M\",\n  \"ssn\": \"123-45-6789\",\n  \"address\": \"456 Oak Ave\",\n  \"city\": \"New York\",\n  \"state\": \"NY\",\n  \"zipCode\": \"10002\",\n  \"phoneNumber\": \"555-987-6543\",\n  \"email\": \"john.doe@example.com\",\n  \"tenantKey\": \"{{tenantKey}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/patients/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"patients",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Patient ID"
+								}
+							]
+						},
+						"description": "Update an existing patient record."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Encounters",
+			"item": [
+				{
+					"name": "Get All Encounters",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/encounters/tenant/{{tenantKey}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"encounters",
+								"tenant",
+								"{{tenantKey}}"
+							]
+						},
+						"description": "Get all encounters for the specified tenant."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Encounter by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/encounters/:id/tenant/{{tenantKey}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"encounters",
+								":id",
+								"tenant",
+								"{{tenantKey}}"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Encounter ID"
+								}
+							]
+						},
+						"description": "Get a specific encounter by ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Encounter",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"patientId\": 1,\n  \"hospitalId\": 1,\n  \"encounterNumber\": \"ENC123456\",\n  \"admissionDate\": \"2025-10-29T10:00:00Z\",\n  \"dischargeDate\": null,\n  \"encounterType\": \"Inpatient\",\n  \"admissionReason\": \"Chest pain\",\n  \"dischargeDiagnosis\": null,\n  \"attendingPhysician\": \"Dr. Smith\",\n  \"status\": \"Active\",\n  \"tenantKey\": \"{{tenantKey}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/encounters",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"encounters"
+							]
+						},
+						"description": "Create a new encounter record."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Encounter",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": 1,\n  \"patientId\": 1,\n  \"hospitalId\": 1,\n  \"encounterNumber\": \"ENC123456\",\n  \"admissionDate\": \"2025-10-29T10:00:00Z\",\n  \"dischargeDate\": \"2025-10-31T14:30:00Z\",\n  \"encounterType\": \"Inpatient\",\n  \"admissionReason\": \"Chest pain\",\n  \"dischargeDiagnosis\": \"Acute coronary syndrome\",\n  \"attendingPhysician\": \"Dr. Smith\",\n  \"status\": \"Discharged\",\n  \"tenantKey\": \"{{tenantKey}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/encounters/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"encounters",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Encounter ID"
+								}
+							]
+						},
+						"description": "Update an existing encounter record."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Hospitals",
+			"item": [
+				{
+					"name": "Get All Hospitals",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/hospitals/tenant/{{tenantKey}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"hospitals",
+								"tenant",
+								"{{tenantKey}}"
+							]
+						},
+						"description": "Get all hospitals for the specified tenant."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Hospital by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/hospitals/:id/tenant/{{tenantKey}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"hospitals",
+								":id",
+								"tenant",
+								"{{tenantKey}}"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Hospital ID"
+								}
+							]
+						},
+						"description": "Get a specific hospital by ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Hospital",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"General Hospital\",\n  \"facilityCode\": \"GH001\",\n  \"address\": \"789 Medical Plaza\",\n  \"city\": \"New York\",\n  \"state\": \"NY\",\n  \"zipCode\": \"10003\",\n  \"phoneNumber\": \"555-111-2222\",\n  \"faxNumber\": \"555-111-3333\",\n  \"email\": \"admin@generalhospital.com\",\n  \"isActive\": true,\n  \"tenantKey\": \"{{tenantKey}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/hospitals",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"hospitals"
+							]
+						},
+						"description": "Create a new hospital record."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Hospital",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": 1,\n  \"name\": \"General Hospital - Main Campus\",\n  \"facilityCode\": \"GH001\",\n  \"address\": \"789 Medical Plaza\",\n  \"city\": \"New York\",\n  \"state\": \"NY\",\n  \"zipCode\": \"10003\",\n  \"phoneNumber\": \"555-111-2222\",\n  \"faxNumber\": \"555-111-3333\",\n  \"email\": \"admin@generalhospital.com\",\n  \"isActive\": true,\n  \"tenantKey\": \"{{tenantKey}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/hospitals/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"hospitals",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Hospital ID"
+								}
+							]
+						},
+						"description": "Update an existing hospital record."
+					},
+					"response": []
+				},
+				{
+					"name": "Set Hospital Status",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"isActive\": false,\n  \"tenantKey\": \"{{tenantKey}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/hospitals/:id/status",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"hospitals",
+								":id",
+								"status"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Hospital ID"
+								}
+							]
+						},
+						"description": "Set hospital active/inactive status."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Providers",
+			"item": [
+				{
+					"name": "Get All Providers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/providers/tenant/{{tenantKey}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"providers",
+								"tenant",
+								"{{tenantKey}}"
+							]
+						},
+						"description": "Get all providers for the specified tenant."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Provider by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/providers/:id/tenant/{{tenantKey}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"providers",
+								":id",
+								"tenant",
+								"{{tenantKey}}"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Provider ID"
+								}
+							]
+						},
+						"description": "Get a specific provider by ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Provider",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"npi\": \"1234567890\",\n  \"specialization\": \"Cardiology\",\n  \"phoneNumber\": \"555-444-5555\",\n  \"email\": \"dr.smith@hospital.com\",\n  \"isActive\": true,\n  \"tenantKey\": \"{{tenantKey}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/providers",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"providers"
+							]
+						},
+						"description": "Create a new provider record."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Provider",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": 1,\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"npi\": \"1234567890\",\n  \"specialization\": \"Interventional Cardiology\",\n  \"phoneNumber\": \"555-444-5555\",\n  \"email\": \"dr.smith@hospital.com\",\n  \"isActive\": true,\n  \"tenantKey\": \"{{tenantKey}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/providers/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"providers",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Provider ID"
+								}
+							]
+						},
+						"description": "Update an existing provider record."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Care Transitions",
+			"item": [
+				{
+					"name": "Get Care Transitions by Encounter",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/caretransitions/encounter/:encounterId?tenantKey={{tenantKey}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"caretransitions",
+								"encounter",
+								":encounterId"
+							],
+							"query": [
+								{
+									"key": "tenantKey",
+									"value": "{{tenantKey}}"
+								}
+							],
+							"variable": [
+								{
+									"key": "encounterId",
+									"value": "1",
+									"description": "Encounter ID"
+								}
+							]
+						},
+						"description": "Get all care transitions for a specific encounter."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Care Transition",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"encounterId\": 1,\n  \"transitionType\": \"Discharge\",\n  \"transitionDate\": \"2025-10-31T14:30:00Z\",\n  \"fromLocation\": \"Emergency Department\",\n  \"toLocation\": \"Home\",\n  \"coordinatingProviderId\": 1,\n  \"notes\": \"Patient discharged in stable condition with follow-up appointment scheduled.\",\n  \"followUpRequired\": true,\n  \"followUpDate\": \"2025-11-07T10:00:00Z\",\n  \"medicationReconciliationCompleted\": true,\n  \"patientEducationProvided\": true,\n  \"tenantKey\": \"{{tenantKey}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/caretransitions",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"caretransitions"
+							]
+						},
+						"description": "Create a new care transition record."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Care Transition",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": 1,\n  \"encounterId\": 1,\n  \"transitionType\": \"Discharge\",\n  \"transitionDate\": \"2025-10-31T14:30:00Z\",\n  \"fromLocation\": \"Emergency Department\",\n  \"toLocation\": \"Home\",\n  \"coordinatingProviderId\": 1,\n  \"notes\": \"Patient discharged in stable condition. Follow-up completed successfully on 2025-11-07.\",\n  \"followUpRequired\": true,\n  \"followUpDate\": \"2025-11-07T10:00:00Z\",\n  \"followUpCompleted\": true,\n  \"medicationReconciliationCompleted\": true,\n  \"patientEducationProvided\": true,\n  \"tenantKey\": \"{{tenantKey}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/caretransitions/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"caretransitions",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Care Transition ID"
+								}
+							]
+						},
+						"description": "Update an existing care transition record."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Audit",
+			"item": [
+				{
+					"name": "Get Audit Logs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/audit/tenant/{{tenantKey}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"audit",
+								"tenant",
+								"{{tenantKey}}"
+							]
+						},
+						"description": "Get all audit logs for the specified tenant."
+					},
+					"response": []
+				},
+				{
+					"name": "Write Audit Log",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"hl7SourceId\": 1,\n  \"messageType\": \"ADT^A01\",\n  \"messageControlId\": \"MSG123456\",\n  \"rawMessage\": \"MSH|^~\\\\&|SendingApp|SendingFacility|...\",\n  \"processedSuccessfully\": true,\n  \"errorMessage\": null,\n  \"patientId\": 1,\n  \"encounterId\": 1,\n  \"tenantKey\": \"{{tenantKey}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/audit",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"audit"
+							]
+						},
+						"description": "Create a new audit log entry for HL7 message processing."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://he-api-dev-eus2.eastus2.azurecontainer.io:8080",
+			"type": "string"
+		},
+		{
+			"key": "tenantKey",
+			"value": "your-tenant-key-here",
+			"type": "string"
+		}
+	]
+}

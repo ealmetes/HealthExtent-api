@@ -98,3 +98,19 @@ Desktop.ini
 # Mac files
 .DS_Store
 nul
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform.lock.hcl
+
+# Mirth Connect temp/runtime files
+mirth/appdata/mirthdb/*.lck
+mirth/appdata/mirthdb/seg0/*.dat
+mirth/appdata/temp/*
+
+# Configuration files with secrets
+acr-config.json
+keyvault-config.json

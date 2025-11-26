@@ -12,7 +12,8 @@ public class Encounter
     public long EncounterKey { get; set; }
 
     [Required]
-    public int TenantKey { get; set; }
+    [MaxLength(64)]
+    public string TenantKey { get; set; } = string.Empty;
 
     [Required]
     public int HospitalKey { get; set; }
@@ -59,12 +60,17 @@ public class Encounter
     [MaxLength(64)]
     public string? DischargeMessageId { get; set; }
 
+    public int Status { get; set; } = 1;
+
+    [Column(TypeName = "datetime2(3)")]
+    public DateTime? TcmSchedule1 { get; set; }
+
+    [Column(TypeName = "datetime2(3)")]
+    public DateTime? TcmSchedule2 { get; set; }
+
     public DateTime LastUpdatedUtc { get; set; } = DateTime.UtcNow;
 
     // Navigation properties
-    [ForeignKey(nameof(TenantKey))]
-    public virtual Tenant? Tenant { get; set; }
-
     [ForeignKey(nameof(HospitalKey))]
     public virtual Hospital? Hospital { get; set; }
 

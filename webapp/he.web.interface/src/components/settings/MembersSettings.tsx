@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useFirebaseAuth } from '@/hooks/useFirebaseAuth';
-import { getTenantMembers, inviteMember, getCurrentUserMember } from '@/services/members-service';
+import { getTenantMembers, inviteMember, getCurrentUserMember, deleteMember, deleteMemberByDocId, updateMemberRole, updateMemberRoleByDocId } from '@/services/members-service';
 import type { MemberHP } from '@/services/members-service';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { ErrorAlert } from '@/components/shared/ErrorAlert';
 
 interface Member {
   id: string;
+  memberDocId?: string; // Actual Firestore document ID
   name: string;
   email: string;
   role: string;
@@ -25,6 +26,20 @@ export function MembersSettings() {
   const [inviting, setInviting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Role change modal state
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [newRole, setNewRole] = useState('');
+  const [updatingRole, setUpdatingRole] = useState(false);
+
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Dropdown state
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchMembers() {
@@ -46,7 +61,8 @@ export function MembersSettings() {
             .join(' ') || member.email?.split('@')[0] || 'Unknown';
 
           return {
-            id: member.userId || member.email || '',
+            id: member.userId || '',
+            memberDocId: member.memberDocId, // Actual Firestore document ID
             name: fullName,
             email: member.email || '',
             role: member.role || 'Member',
@@ -103,7 +119,8 @@ export function MembersSettings() {
           .join(' ') || member.email?.split('@')[0] || 'Unknown';
 
         return {
-          id: member.userId || member.email || '',
+          id: member.userId || '',
+          memberDocId: member.memberDocId,
           name: fullName,
           email: member.email || '',
           role: member.role || 'Member',
@@ -113,11 +130,12 @@ export function MembersSettings() {
       });
 
       if (!transformedMembers.find((m) => m.email === user?.email)) {
+        const currentMember = await getCurrentUserMember(user!.id, tenantKey);
         transformedMembers.unshift({
           id: user?.id || '',
           name: user?.name || 'You',
           email: user?.email || '',
-          role: 'Admin',
+          role: currentMember?.role || 'Admin',
           status: 'active',
           joinedAt: new Date().toISOString(),
         });
@@ -136,6 +154,177 @@ export function MembersSettings() {
       setError(err.message || 'Failed to send invitation');
     } finally {
       setInviting(false);
+    }
+  };
+
+  const handleChangeRole = (member: Member) => {
+    setSelectedMember(member);
+    setNewRole(member.role);
+    setShowRoleModal(true);
+    setOpenDropdownId(null);
+  };
+
+  const handleRoleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!selectedMember || !tenantKey) return;
+
+    // Validate that member is active and has a valid userId
+    if (selectedMember.status === 'pending') {
+      setError('Cannot change role for pending members. They must activate their account first.');
+      return;
+    }
+
+    if (!selectedMember.memberDocId && !selectedMember.id) {
+      setError('Invalid member ID. Cannot update role.');
+      return;
+    }
+
+    try {
+      setUpdatingRole(true);
+      setError(null);
+
+      console.log('Updating role for member:', {
+        memberDocId: selectedMember.memberDocId,
+        userId: selectedMember.id,
+        tenantKey,
+        newRole,
+        memberEmail: selectedMember.email
+      });
+
+      // Use memberDocId if available, otherwise construct from userId and tenantKey
+      if (selectedMember.memberDocId) {
+        await updateMemberRoleByDocId(selectedMember.memberDocId, newRole);
+      } else {
+        await updateMemberRole(selectedMember.id, tenantKey, newRole);
+      }
+
+      setSuccessMessage(`Updated ${selectedMember.name}'s role to ${newRole}`);
+
+      // Refresh members list
+      const membersData = await getTenantMembers(tenantKey);
+      const transformedMembers: Member[] = membersData.map((member) => {
+        const fullName = [member.firstName, member.lastName]
+          .filter(Boolean)
+          .join(' ') || member.email?.split('@')[0] || 'Unknown';
+
+        return {
+          id: member.userId || '',
+          memberDocId: member.memberDocId,
+          name: fullName,
+          email: member.email || '',
+          role: member.role || 'Member',
+          status: member.active ? 'active' : 'pending',
+          joinedAt: member.invitedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        };
+      });
+
+      if (!transformedMembers.find((m) => m.email === user?.email)) {
+        const currentMember = await getCurrentUserMember(user!.id, tenantKey);
+        transformedMembers.unshift({
+          id: user?.id || '',
+          name: user?.name || 'You',
+          email: user?.email || '',
+          role: currentMember?.role || 'Admin',
+          status: 'active',
+          joinedAt: new Date().toISOString(),
+        });
+      }
+
+      setMembers(transformedMembers);
+
+      // Close modal
+      setShowRoleModal(false);
+      setSelectedMember(null);
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      console.error('Error updating member role:', err);
+      setError(err.message || 'An unexpected error occurred while updating the role');
+    } finally {
+      setUpdatingRole(false);
+    }
+  };
+
+  const handleDeleteMember = (member: Member) => {
+    setMemberToDelete(member);
+    setShowDeleteConfirm(true);
+    setOpenDropdownId(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!memberToDelete || !tenantKey) return;
+
+    // Validate that we have a document ID to delete
+    if (!memberToDelete.memberDocId && !memberToDelete.id) {
+      setError('Invalid member ID. Cannot delete member.');
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      setError(null);
+
+      console.log('Deleting member:', {
+        memberDocId: memberToDelete.memberDocId,
+        userId: memberToDelete.id,
+        tenantKey,
+        memberEmail: memberToDelete.email
+      });
+
+      // Use memberDocId if available, otherwise construct from userId and tenantKey
+      if (memberToDelete.memberDocId) {
+        await deleteMemberByDocId(memberToDelete.memberDocId);
+      } else {
+        await deleteMember(memberToDelete.id, tenantKey);
+      }
+
+      setSuccessMessage(`Removed ${memberToDelete.name} from the team`);
+
+      // Refresh members list
+      const membersData = await getTenantMembers(tenantKey);
+      const transformedMembers: Member[] = membersData.map((member) => {
+        const fullName = [member.firstName, member.lastName]
+          .filter(Boolean)
+          .join(' ') || member.email?.split('@')[0] || 'Unknown';
+
+        return {
+          id: member.userId || '',
+          memberDocId: member.memberDocId,
+          name: fullName,
+          email: member.email || '',
+          role: member.role || 'Member',
+          status: member.active ? 'active' : 'pending',
+          joinedAt: member.invitedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        };
+      });
+
+      if (!transformedMembers.find((m) => m.email === user?.email)) {
+        const currentMember = await getCurrentUserMember(user!.id, tenantKey);
+        transformedMembers.unshift({
+          id: user?.id || '',
+          name: user?.name || 'You',
+          email: user?.email || '',
+          role: currentMember?.role || 'Admin',
+          status: 'active',
+          joinedAt: new Date().toISOString(),
+        });
+      }
+
+      setMembers(transformedMembers);
+
+      // Close modal
+      setShowDeleteConfirm(false);
+      setMemberToDelete(null);
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      console.error('Error deleting member:', err);
+      setError(err.message || 'An unexpected error occurred while removing the member');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -233,11 +422,52 @@ export function MembersSettings() {
                     </p>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button className="text-[#888888] hover:text-[#00E676] transition-colors p-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                      </svg>
-                    </button>
+                    {/* Only show actions for other active members with valid userId and if current user is admin */}
+                    {member.email !== user?.email && member.status === 'active' && member.id && currentUserRole?.toLowerCase() === 'admin' && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setOpenDropdownId(openDropdownId === member.id ? null : member.id)}
+                          className="text-[#888888] hover:text-[#00E676] transition-colors p-2"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                          </svg>
+                        </button>
+
+                        {/* Dropdown Menu */}
+                        {openDropdownId === member.id && (
+                          <>
+                            {/* Backdrop to close dropdown */}
+                            <div
+                              className="fixed inset-0 z-10"
+                              onClick={() => setOpenDropdownId(null)}
+                            ></div>
+
+                            {/* Dropdown content */}
+                            <div className="absolute right-0 mt-2 w-48 bg-[#242832] border border-[#2A2A2A] rounded-lg shadow-lg z-20">
+                              <button
+                                onClick={() => handleChangeRole(member)}
+                                className="w-full text-left px-4 py-2 text-sm text-[#E0E0E0] hover:bg-white/5 flex items-center gap-2 rounded-t-lg"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                                Change Role
+                              </button>
+                              <button
+                                onClick={() => handleDeleteMember(member)}
+                                className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 flex items-center gap-2 rounded-b-lg"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                Remove Member
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -253,17 +483,21 @@ export function MembersSettings() {
             </svg>
             <h3 className="mt-4 text-sm font-medium text-white">No team members yet</h3>
             <p className="mt-2 text-sm text-[#888888]">
-              Invite team members to collaborate with you
+              {currentUserRole?.toLowerCase() === 'admin'
+                ? 'Invite team members to collaborate with you'
+                : 'Only admins can invite team members'}
             </p>
-            <button
-              onClick={() => setShowInviteModal(true)}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#6200EA] text-white rounded-lg hover:bg-[#7C4DFF] transition-colors text-sm"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <span>Invite Your First Member</span>
-            </button>
+            {currentUserRole?.toLowerCase() === 'admin' && (
+              <button
+                onClick={() => setShowInviteModal(true)}
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#6200EA] text-white rounded-lg hover:bg-[#7C4DFF] transition-colors text-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span>Invite Your First Member</span>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -346,6 +580,157 @@ export function MembersSettings() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Role Change Modal */}
+      {showRoleModal && selectedMember && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-white">Change Role</h3>
+              <button
+                onClick={() => {
+                  setShowRoleModal(false);
+                  setSelectedMember(null);
+                }}
+                className="text-[#888888] hover:text-white transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleRoleUpdate} className="space-y-4">
+              <div>
+                <p className="text-sm text-[#888888] mb-4">
+                  Change role for <span className="text-[#E0E0E0] font-medium">{selectedMember.name}</span>
+                </p>
+                <label htmlFor="roleSelect" className="block text-sm font-medium text-[#E0E0E0] mb-2">
+                  New Role
+                </label>
+                <select
+                  id="roleSelect"
+                  value={newRole}
+                  onChange={(e) => setNewRole(e.target.value)}
+                  className="w-full bg-[#242832] border border-[#2A2A2A] rounded-lg px-4 py-2 text-[#E0E0E0] focus:outline-none focus:border-[#00E676] focus:ring-1 focus:ring-[#00E676] transition-colors"
+                >
+                  <option value="member">Member</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <p className="text-xs text-[#666666] mt-1">
+                  {newRole === 'admin'
+                    ? 'Admins can manage settings and invite members'
+                    : 'Members have standard access to the application'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRoleModal(false);
+                    setSelectedMember(null);
+                  }}
+                  disabled={updatingRole}
+                  className="flex-1 px-4 py-2 border border-[#2A2A2A] text-[#E0E0E0] rounded-lg hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updatingRole || newRole === selectedMember.role}
+                  className="flex-1 px-4 py-2 bg-[#6200EA] text-white rounded-lg hover:bg-[#7C4DFF] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {updatingRole ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Updating...</span>
+                    </>
+                  ) : (
+                    'Update Role'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && memberToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-white">Remove Member</h3>
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setMemberToDelete(null);
+                }}
+                className="text-[#888888] hover:text-white transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-red-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm text-[#E0E0E0] font-medium">
+                    Remove <span className="text-white">{memberToDelete.name}</span>?
+                  </p>
+                  <p className="text-xs text-[#888888] mt-1">
+                    {memberToDelete.email}
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm text-[#888888]">
+                This member will lose access to the organization and all its resources. This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setMemberToDelete(null);
+                }}
+                disabled={deleting}
+                className="flex-1 px-4 py-2 border border-[#2A2A2A] text-[#E0E0E0] rounded-lg hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {deleting ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Removing...</span>
+                  </>
+                ) : (
+                  'Remove Member'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

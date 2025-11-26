@@ -33,7 +33,7 @@ public class AuthController : ControllerBase
     ///     POST /api/auth/token
     ///     {
     ///         "username": "api-user",
-    ///         "tenantId": 1,
+    ///         "tenantKey": "account_123",
     ///         "tenantCode": "TENANT001"
     ///     }
     ///
@@ -48,8 +48,8 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public IActionResult GenerateToken([FromBody] TokenRequest request)
     {
-        _logger.LogInformation("Token generation requested for user: {Username}, tenant: {TenantId}",
-            request.Username, request.TenantId);
+        _logger.LogInformation("Token generation requested for user: {Username}, tenant: {TenantKey}",
+            request.Username, request.TenantKey);
 
         var jwtSecretKey = _configuration["Jwt:SecretKey"];
         var jwtIssuer = _configuration["Jwt:Issuer"];
@@ -61,9 +61,9 @@ public class AuthController : ControllerBase
             return BadRequest(new { error = "JWT authentication is not configured. Please set Jwt:SecretKey in configuration." });
         }
 
-        if (request.TenantId <= 0)
+        if (string.IsNullOrWhiteSpace(request.TenantKey))
         {
-            return BadRequest(new { error = "TenantId must be greater than 0" });
+            return BadRequest(new { error = "TenantKey is required" });
         }
 
         if (string.IsNullOrWhiteSpace(request.Username))
@@ -77,8 +77,8 @@ public class AuthController : ControllerBase
             {
                 new Claim(ClaimTypes.Name, request.Username),
                 new Claim(ClaimTypes.NameIdentifier, request.Username),
-                new Claim("tenant_id", request.TenantId.ToString()),
-                new Claim("tenant_code", request.TenantCode ?? $"TENANT{request.TenantId:D3}"),
+                new Claim("tenant_id", request.TenantKey),
+                new Claim("tenant_code", request.TenantCode ?? request.TenantKey),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString())
             };
@@ -96,14 +96,14 @@ public class AuthController : ControllerBase
 
             var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
 
-            _logger.LogInformation("Token generated successfully for user: {Username}, tenant: {TenantId}, expires: {Expires}",
-                request.Username, request.TenantId, token.ValidTo);
+            _logger.LogInformation("Token generated successfully for user: {Username}, tenant: {TenantKey}, expires: {Expires}",
+                request.Username, request.TenantKey, token.ValidTo);
 
             return Ok(new TokenResponse
             {
                 Token = tokenString,
                 Expires = token.ValidTo,
-                TenantId = request.TenantId,
+                TenantKey = request.TenantKey,
                 Username = request.Username
             });
         }
@@ -124,7 +124,7 @@ public class AuthController : ControllerBase
     public IActionResult ValidateToken()
     {
         var username = User.Identity?.Name;
-        var tenantId = User.FindFirst("tenant_id")?.Value;
+        var tenantKey = User.FindFirst("tenant_id")?.Value;
         var tenantCode = User.FindFirst("tenant_code")?.Value;
         var claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList();
 
@@ -132,7 +132,7 @@ public class AuthController : ControllerBase
         {
             valid = true,
             username = username,
-            tenantId = tenantId,
+            tenantKey = tenantKey,
             tenantCode = tenantCode,
             claims = claims
         });

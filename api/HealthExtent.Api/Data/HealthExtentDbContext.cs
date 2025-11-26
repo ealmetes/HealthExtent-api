@@ -14,12 +14,13 @@ public class HealthExtentDbContext : DbContext
         _tenantProvider = tenantProvider;
     }
 
-    public DbSet<Tenant> Tenants { get; set; } = null!;
     public DbSet<Hospital> Hospitals { get; set; } = null!;
     public DbSet<Hl7Source> Hl7Sources { get; set; } = null!;
     public DbSet<Patient> Patients { get; set; } = null!;
     public DbSet<Encounter> Encounters { get; set; } = null!;
     public DbSet<Hl7MessageAudit> Hl7MessageAudits { get; set; } = null!;
+    public DbSet<Provider> Providers { get; set; } = null!;
+    public DbSet<CareTransition> CareTransitions { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,10 +32,6 @@ public class HealthExtentDbContext : DbContext
             .HasComputedColumnSql("ISNULL([AssigningAuthority], '')", stored: true);
 
         // Configure unique constraints explicitly
-        modelBuilder.Entity<Tenant>()
-            .HasIndex(t => t.TenantCode)
-            .IsUnique();
-
         modelBuilder.Entity<Hospital>()
             .HasIndex(h => new { h.TenantKey, h.HospitalCode })
             .IsUnique()
@@ -63,6 +60,9 @@ public class HealthExtentDbContext : DbContext
             .WithMany(h => h.Encounters)
             .HasForeignKey(e => e.HospitalKey)
             .OnDelete(DeleteBehavior.NoAction);
+
+        // CareTransition relationships not configured due to type mismatch
+        // CareTransition uses INT for EncounterKey/PatientKey, but Encounter/Patient use BIGINT
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -70,12 +70,12 @@ public class HealthExtentDbContext : DbContext
         // Set tenant context for RLS if available
         if (_tenantProvider != null)
         {
-            var tenantId = _tenantProvider.GetTenantId();
-            if (tenantId.HasValue)
+            var tenantKey = _tenantProvider.GetTenantKey();
+            if (!string.IsNullOrEmpty(tenantKey))
             {
                 await Database.ExecuteSqlRawAsync(
                     "EXEC sys.sp_set_session_context @key=N'tenant_id', @value={0}",
-                    tenantId.Value);
+                    tenantKey);
             }
         }
 

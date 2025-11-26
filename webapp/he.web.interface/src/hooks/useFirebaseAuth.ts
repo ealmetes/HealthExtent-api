@@ -9,13 +9,14 @@ import {
 } from 'firebase/auth';
 import { auth, getTenantKeyFromUser } from '@/config/firebase-config';
 import { checkAccountExists, ensureTenantExists } from '@/services/account-service';
-import { getUserActiveTenants } from '@/services/members-service';
+import { getUserActiveTenants, getCurrentUserMember } from '@/services/members-service';
 
 export interface AuthenticatedUser {
   id: string;
   email: string;
   name: string;
   tenantKey: string | null;
+  role?: string;
   hasAccount?: boolean;
   hasMembership?: boolean;
 }
@@ -68,11 +69,23 @@ export function useFirebaseAuth() {
           }
         }
 
+        // Fetch current user's role for the selected tenant
+        let userRole: string | undefined = undefined;
+        if (userTenantKey) {
+          try {
+            const currentMember = await getCurrentUserMember(fbUser.uid, userTenantKey);
+            userRole = currentMember?.role;
+          } catch (error) {
+            console.error('Error fetching user role:', error);
+          }
+        }
+
         const authenticatedUser: AuthenticatedUser = {
           id: fbUser.uid,
           email: fbUser.email || '',
           name: fbUser.displayName || fbUser.email || 'User',
           tenantKey: userTenantKey,
+          role: userRole,
           hasAccount: accountExists,
           hasMembership: hasActiveMembership,
         };

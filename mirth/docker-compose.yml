@@ -1,0 +1,14 @@
+services:
+  mc:
+    build: .
+    container_name: mirth-local
+    ports:
+      - "8081:8080"   # HTTP
+      - "8444:8443"   # HTTPS
+    environment:
+      - JAVA_OPTS=-Xms512m -Xmx2048m
+      - DATABASE=derby
+    volumes:
+      - ./appdata:/opt/connect/appdata
+      - ./logs:/opt/connect/logs
+    restart: unless-stopped

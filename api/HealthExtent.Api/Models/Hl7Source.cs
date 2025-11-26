@@ -10,7 +10,8 @@ public class Hl7Source
     public int SourceKey { get; set; }
 
     [Required]
-    public int TenantKey { get; set; }
+    [MaxLength(64)]
+    public string TenantKey { get; set; } = string.Empty;
 
     [Required]
     [MaxLength(64)]
@@ -26,9 +27,6 @@ public class Hl7Source
     public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
 
     // Navigation properties
-    [ForeignKey(nameof(TenantKey))]
-    public virtual Tenant? Tenant { get; set; }
-
     [ForeignKey(nameof(HospitalKey))]
     public virtual Hospital? Hospital { get; set; }
 }

@@ -7,6 +7,7 @@ import { SignupPage } from './components/auth/SignupPage';
 import { OnboardingPage } from './components/onboarding/OnboardingPage';
 import { AccountSetupPage } from './components/account/AccountSetupPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { AdminRoute } from './components/auth/AdminRoute';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 import { DashboardHome } from './components/dashboard/DashboardHome';
 import { DischargeSummariesList } from './components/dashboard/DischargeSummariesList';
@@ -21,6 +22,7 @@ import { SettingsLayout } from './components/settings/SettingsLayout';
 import { AccountDetailsPage } from './components/settings/AccountDetailsPage';
 import { AccountSettings } from './components/settings/AccountSettings';
 import { MembersSettings } from './components/settings/MembersSettings';
+import { UserProfilePage } from './components/settings/UserProfilePage';
 import { AuthInitializer } from './components/auth/AuthInitializer';
 import './styles/index.css';
 
@@ -64,11 +66,12 @@ function App() {
               <Route path="hospitals" element={<HospitalsList />} />
               <Route path="patients" element={<PatientsList />} />
               <Route path="patients/:id" element={<PatientDetail />} />
-              <Route path="settings" element={<SettingsLayout />}>
+              <Route path="settings" element={<AdminRoute><SettingsLayout /></AdminRoute>}>
                 <Route index element={<Navigate to="/app/settings/account-details" replace />} />
                 <Route path="account-details" element={<AccountDetailsPage />} />
                 <Route path="account" element={<AccountSettings />} />
                 <Route path="members" element={<MembersSettings />} />
+                <Route path="profile" element={<UserProfilePage />} />
               </Route>
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -2,13 +2,44 @@ using Microsoft.EntityFrameworkCore;
 using HealthExtent.Api.Data;
 using HealthExtent.Api.Services;
 using FluentValidation;
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
+using Azure.Extensions.AspNetCore.Configuration.Secrets;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure URLs - Bind to all interfaces to allow Mirth Connect access
-builder.WebHost.UseUrls("http://0.0.0.0:5000", "https://0.0.0.0:5001");
+// Azure Key Vault Configuration (Production only)
+if (!builder.Environment.IsDevelopment())
+{
+    var keyVaultUri = builder.Configuration["KeyVaultUri"];
 
-// Configure Logging
+    if (!string.IsNullOrEmpty(keyVaultUri))
+    {
+        try
+        {
+            Console.WriteLine("Attempting to configure Azure Key Vault: {0}", keyVaultUri);
+
+            var secretClient = new SecretClient(
+                new Uri(keyVaultUri),
+                new DefaultAzureCredential());
+
+            builder.Configuration.AddAzureKeyVault(secretClient, new KeyVaultSecretManager());
+
+            Console.WriteLine("SUCCESS: Azure Key Vault configured: {0}", keyVaultUri);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("WARNING: Failed to configure Azure Key Vault: {0}", ex.Message);
+            Console.WriteLine("Continuing with appsettings/environment variables for configuration.");
+        }
+    }
+    else
+    {
+        Console.WriteLine("INFO: KeyVaultUri not configured. Using appsettings/environment variables for secrets.");
+    }
+}
+
+// Configure Logging (URLs configured via ASPNETCORE_URLS environment variable)
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
@@ -155,8 +186,13 @@ app.Use(async (context, next) =>
     await next();
 });
 
-app.UseHttpsRedirection();
+// Enable HTTPS redirection in production
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
+// Authentication and Authorization - ENABLED FOR PRODUCTION SECURITY
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -179,3 +215,4 @@ catch (Exception ex)
     Console.WriteLine($"FATAL ERROR: {ex}");
     throw;
 }
+

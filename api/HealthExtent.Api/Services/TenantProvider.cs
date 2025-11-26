@@ -9,24 +9,28 @@ public class TenantProvider : ITenantProvider
         _httpContextAccessor = httpContextAccessor;
     }
 
-    public int? GetTenantId()
+    public string? GetTenantKey()
     {
         var httpContext = _httpContextAccessor.HttpContext;
         if (httpContext == null)
             return null;
 
-        // Check custom header first
-        if (httpContext.Request.Headers.TryGetValue("X-Tenant-Id", out var tenantIdHeader))
+        // Check custom header first (X-Tenant-Key or X-Tenant-Id for backward compatibility)
+        if (httpContext.Request.Headers.TryGetValue("X-Tenant-Key", out var tenantKeyHeader))
         {
-            if (int.TryParse(tenantIdHeader, out var tenantId))
-                return tenantId;
+            return tenantKeyHeader;
         }
 
-        // Check if tenant ID is in claims (from JWT token)
-        var tenantClaim = httpContext.User.FindFirst("tenant_id");
-        if (tenantClaim != null && int.TryParse(tenantClaim.Value, out var tenantIdFromClaim))
+        if (httpContext.Request.Headers.TryGetValue("X-Tenant-Id", out var tenantIdHeader))
         {
-            return tenantIdFromClaim;
+            return tenantIdHeader;
+        }
+
+        // Check if tenant key is in claims (from JWT token)
+        var tenantClaim = httpContext.User.FindFirst("tenant_id");
+        if (tenantClaim != null)
+        {
+            return tenantClaim.Value;
         }
 
         return null;

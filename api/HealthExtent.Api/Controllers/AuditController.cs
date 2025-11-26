@@ -52,7 +52,7 @@ public class AuditController : ControllerBase
     [HttpGet("tenant/{tenantKey}")]
     [ProducesResponseType(typeof(IEnumerable<Hl7MessageAuditDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<Hl7MessageAuditDto>>> GetAuditsByTenant(
-        int tenantKey,
+        string tenantKey,
         [FromQuery] int skip = 0,
         [FromQuery] int take = 100)
     {

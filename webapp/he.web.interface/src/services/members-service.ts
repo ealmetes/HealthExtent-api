@@ -7,7 +7,8 @@ import {
   query,
   where,
   serverTimestamp,
-  updateDoc
+  updateDoc,
+  deleteDoc
 } from 'firebase/firestore';
 import { db } from '@/config/firebase-config';
 
@@ -36,8 +37,8 @@ export async function getTenantMembers(tenantKey: string): Promise<MemberHP[]> {
       const data = doc.data() as MemberHP;
       members.push({
         ...data,
-        memberDocId: doc.id, // Store document ID for matching with AssignedToUserKey
-        userId: data.userId || doc.id // Keep original userId, fallback to doc.id
+        memberDocId: doc.id, // Store document ID (userId_tenantKey) for matching with AssignedToUserKey
+        userId: data.userId // Use userId from document data
       });
     });
 
@@ -80,7 +81,11 @@ export async function getUserTenants(email: string): Promise<MemberHP[]> {
 
     const tenants: MemberHP[] = [];
     querySnapshot.forEach((doc) => {
-      tenants.push({ ...doc.data() as MemberHP, userId: doc.id });
+      const data = doc.data() as MemberHP;
+      tenants.push({
+        ...data,
+        memberDocId: doc.id // Store document ID for reference
+      });
     });
 
     return tenants;
@@ -105,7 +110,11 @@ export async function getUserActiveTenants(userId: string, email?: string): Prom
 
     const tenants: MemberHP[] = [];
     userIdSnapshot.forEach((doc) => {
-      tenants.push({ ...doc.data() as MemberHP, userId: doc.id });
+      const data = doc.data() as MemberHP;
+      tenants.push({
+        ...data,
+        memberDocId: doc.id // Store document ID for reference
+      });
     });
 
     // If no results and email provided, also check by email (for newly activated accounts)
@@ -118,7 +127,11 @@ export async function getUserActiveTenants(userId: string, email?: string): Prom
       const emailSnapshot = await getDocs(qEmail);
 
       emailSnapshot.forEach((doc) => {
-        tenants.push({ ...doc.data() as MemberHP, userId: doc.id });
+        const data = doc.data() as MemberHP;
+        tenants.push({
+          ...data,
+          memberDocId: doc.id // Store document ID for reference
+        });
       });
     }
 
@@ -162,9 +175,10 @@ export async function inviteMember(
       throw new Error('User is already a member or has been invited');
     }
 
-    // Create a unique ID for the member (combine email and tenantKey)
-    const memberId = `${email}_${tenantKey}`.replace(/[^a-zA-Z0-9]/g, '_');
-    const memberRef = doc(db, 'members_hp', memberId);
+    // For pending invites (no userId yet), create a temporary ID using email_tenantKey
+    // This will be migrated to userId-based doc when user activates
+    const tempMemberId = `pending_${email}_${tenantKey}`.replace(/[^a-zA-Z0-9_]/g, '_');
+    const memberRef = doc(db, 'members_hp', tempMemberId);
 
     await setDoc(memberRef, {
       userId: '', // Will be filled when user signs up
@@ -191,30 +205,44 @@ export async function activateMember(
   lastName?: string
 ): Promise<void> {
   try {
-    // Match the ID format used in inviteMember
-    const memberId = `${email}_${tenantKey}`.replace(/[^a-zA-Z0-9]/g, '_');
-    const memberRef = doc(db, 'members_hp', memberId);
+    // Find the pending invite document
+    const membersRef = collection(db, 'members_hp');
+    const q = query(
+      membersRef,
+      where('email', '==', email),
+      where('tenantKey', '==', tenantKey),
+      where('active', '==', false)
+    );
+    const querySnapshot = await getDocs(q);
 
-    const memberDoc = await getDoc(memberRef);
-    if (!memberDoc.exists()) {
+    if (querySnapshot.empty) {
       throw new Error('Member invitation not found');
     }
 
-    const updateData: any = {
+    // Get the pending invite data
+    const pendingDoc = querySnapshot.docs[0];
+    const pendingData = pendingDoc.data() as MemberHP;
+
+    // Create a new document with userId_tenantKey as the document ID
+    const memberId = `${userId}_${tenantKey}`;
+    const newMemberRef = doc(db, 'members_hp', memberId);
+
+    await setDoc(newMemberRef, {
       userId,
+      email,
+      tenantKey,
+      role: pendingData.role,
       active: true,
+      firstName: firstName !== undefined ? firstName : (pendingData.firstName || ''),
+      lastName: lastName !== undefined ? lastName : (pendingData.lastName || ''),
+      invitedAt: pendingData.invitedAt,
       activatedAt: serverTimestamp(),
-    };
+    });
 
-    // Update firstName and lastName if provided (ensure we set them even if empty strings to avoid undefined)
-    if (firstName !== undefined) {
-      updateData.firstName = firstName || '';
-    }
-    if (lastName !== undefined) {
-      updateData.lastName = lastName || '';
-    }
+    // Delete the old pending document
+    await deleteDoc(pendingDoc.ref);
 
-    await updateDoc(memberRef, updateData);
+    console.log(`Activated member: ${email} with userId: ${userId} for tenant: ${tenantKey}`);
   } catch (error) {
     console.error('Error activating member:', error);
     throw error;
@@ -234,7 +262,11 @@ export async function getPendingInvitations(email: string): Promise<MemberHP[]> 
 
     const invitations: MemberHP[] = [];
     querySnapshot.forEach((doc) => {
-      invitations.push({ ...doc.data() as MemberHP, userId: doc.id });
+      const data = doc.data() as MemberHP;
+      invitations.push({
+        ...data,
+        memberDocId: doc.id // Store document ID for reference (pending_email_tenantKey format)
+      });
     });
 
     return invitations;
@@ -259,8 +291,9 @@ export async function addExistingUserAsMember(
     if (existing) {
       throw new Error('User is already a member');
     }
-    //.replace(/[^a-zA-Z0-9]/g, '_')
-    const memberId = `${tenantKey}`;
+
+    // Use userId_tenantKey as the document ID
+    const memberId = `${userId}_${tenantKey}`;
     const memberRef = doc(db, 'members_hp', memberId);
 
     await setDoc(memberRef, {
@@ -274,6 +307,8 @@ export async function addExistingUserAsMember(
       invitedAt: serverTimestamp(),
       activatedAt: serverTimestamp(),
     });
+
+    console.log(`Added existing user as member: ${email} with userId: ${userId} for tenant: ${tenantKey}`);
   } catch (error) {
     console.error('Error adding existing user as member:', error);
     throw error;
@@ -288,8 +323,8 @@ export async function updateMemberNamesFromAuthProfile(
   displayName?: string
 ): Promise<void> {
   try {
-    // Find the member document
-    const memberId = `${email}_${tenantKey}`.replace(/[^a-zA-Z0-9]/g, '_');
+    // Use userId_tenantKey as the document ID
+    const memberId = `${userId}_${tenantKey}`;
     const memberRef = doc(db, 'members_hp', memberId);
 
     const memberDoc = await getDoc(memberRef);
@@ -325,5 +360,128 @@ export async function updateMemberNamesFromAuthProfile(
   } catch (error) {
     console.error('Error updating member names from auth profile:', error);
     // Don't throw - this is a non-critical operation
+  }
+}
+
+// Delete a member by document ID
+export async function deleteMemberByDocId(
+  memberDocId: string
+): Promise<void> {
+  try {
+    const memberRef = doc(db, 'members_hp', memberDocId);
+
+    await deleteDoc(memberRef);
+    console.log(`Deleted member document: ${memberDocId}`);
+  } catch (error) {
+    console.error('Error deleting member:', error);
+    throw error;
+  }
+}
+
+// Delete a member from a tenant
+export async function deleteMember(
+  userId: string,
+  tenantKey: string
+): Promise<void> {
+  try {
+    const memberId = `${userId}_${tenantKey}`;
+    const memberRef = doc(db, 'members_hp', memberId);
+
+    await deleteDoc(memberRef);
+    console.log(`Deleted member: ${userId} from tenant: ${tenantKey}`);
+  } catch (error) {
+    console.error('Error deleting member:', error);
+    throw error;
+  }
+}
+
+// Update member role using document ID
+export async function updateMemberRoleByDocId(
+  memberDocId: string,
+  newRole: string
+): Promise<void> {
+  try {
+    const memberRef = doc(db, 'members_hp', memberDocId);
+
+    await updateDoc(memberRef, {
+      role: newRole,
+    });
+    console.log(`Updated role for member document ${memberDocId} to ${newRole}`);
+  } catch (error) {
+    console.error('Error updating member role:', error);
+    throw error;
+  }
+}
+
+// Update member role
+export async function updateMemberRole(
+  userId: string,
+  tenantKey: string,
+  newRole: string
+): Promise<void> {
+  try {
+    const memberId = `${userId}_${tenantKey}`;
+    const memberRef = doc(db, 'members_hp', memberId);
+
+    await updateDoc(memberRef, {
+      role: newRole,
+    });
+    console.log(`Updated role for member: ${userId} in tenant: ${tenantKey} to ${newRole}`);
+  } catch (error) {
+    console.error('Error updating member role:', error);
+    throw error;
+  }
+}
+
+// Update member name (firstName and lastName) for all tenants where user is a member
+export async function updateMemberNames(
+  userId: string,
+  email: string,
+  firstName: string,
+  lastName: string
+): Promise<void> {
+  try {
+    // Get all tenants for this user
+    const membersRef = collection(db, 'members_hp');
+
+    // Query by userId
+    const qUserId = query(
+      membersRef,
+      where('userId', '==', userId)
+    );
+    const userIdSnapshot = await getDocs(qUserId);
+
+    // Query by email as fallback
+    const qEmail = query(
+      membersRef,
+      where('email', '==', email)
+    );
+    const emailSnapshot = await getDocs(qEmail);
+
+    // Collect all unique member documents
+    const memberDocs = new Map();
+
+    userIdSnapshot.forEach((doc) => {
+      memberDocs.set(doc.id, doc);
+    });
+
+    emailSnapshot.forEach((doc) => {
+      memberDocs.set(doc.id, doc);
+    });
+
+    // Update each member document
+    const updatePromises = Array.from(memberDocs.values()).map(async (doc) => {
+      const memberRef = doc.ref;
+      await updateDoc(memberRef, {
+        firstName: firstName || '',
+        lastName: lastName || '',
+      });
+    });
+
+    await Promise.all(updatePromises);
+    console.log(`Updated names for ${memberDocs.size} member record(s)`);
+  } catch (error) {
+    console.error('Error updating member names:', error);
+    throw error;
   }
 }

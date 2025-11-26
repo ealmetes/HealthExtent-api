@@ -8,8 +8,10 @@ public class UpsertPatientRequestValidator : AbstractValidator<UpsertPatientRequ
     public UpsertPatientRequestValidator()
     {
         RuleFor(x => x.TenantKey)
-            .GreaterThan(0)
-            .WithMessage("TenantKey must be greater than 0");
+            .NotEmpty()
+            .WithMessage("TenantKey is required")
+            .MaximumLength(64)
+            .WithMessage("TenantKey cannot exceed 64 characters");
 
         RuleFor(x => x.PatientIdExternal)
             .NotEmpty()
@@ -26,6 +28,21 @@ public class UpsertPatientRequestValidator : AbstractValidator<UpsertPatientRequ
             .MaximumLength(64)
             .WithMessage("MRN cannot exceed 64 characters")
             .When(x => !string.IsNullOrEmpty(x.MRN));
+
+        RuleFor(x => x.SSN)
+            .MaximumLength(11)
+            .WithMessage("SSN cannot exceed 11 characters")
+            .When(x => !string.IsNullOrEmpty(x.SSN));
+
+        RuleFor(x => x.CustodianName)
+            .MaximumLength(200)
+            .WithMessage("CustodianName cannot exceed 200 characters")
+            .When(x => !string.IsNullOrEmpty(x.CustodianName));
+
+        RuleFor(x => x.CustodianPhone)
+            .MaximumLength(50)
+            .WithMessage("CustodianPhone cannot exceed 50 characters")
+            .When(x => !string.IsNullOrEmpty(x.CustodianPhone));
 
         RuleFor(x => x.FamilyName)
             .MaximumLength(128)

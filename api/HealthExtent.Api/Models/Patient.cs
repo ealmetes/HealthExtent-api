@@ -13,7 +13,8 @@ public class Patient
     public long PatientKey { get; set; }
 
     [Required]
-    public int TenantKey { get; set; }
+    [MaxLength(64)]
+    public string TenantKey { get; set; } = string.Empty;
 
     [Required]
     [MaxLength(64)]
@@ -24,6 +25,9 @@ public class Patient
 
     [MaxLength(64)]
     public string? MRN { get; set; }
+
+    [MaxLength(11)]
+    public string? SSN { get; set; }
 
     [MaxLength(100)]
     public string? FamilyName { get; set; }
@@ -39,6 +43,12 @@ public class Patient
 
     [MaxLength(50)]
     public string? Phone { get; set; }
+
+    [MaxLength(200)]
+    public string? CustodianName { get; set; }
+
+    [MaxLength(50)]
+    public string? CustodianPhone { get; set; }
 
     [MaxLength(200)]
     public string? AddressLine1 { get; set; }
@@ -65,9 +75,6 @@ public class Patient
     public string AssigningAuthorityNorm { get; private set; } = string.Empty;
 
     // Navigation properties
-    [ForeignKey(nameof(TenantKey))]
-    public virtual Tenant? Tenant { get; set; }
-
     [ForeignKey(nameof(FirstSeenHospitalKey))]
     public virtual Hospital? FirstSeenHospital { get; set; }
 

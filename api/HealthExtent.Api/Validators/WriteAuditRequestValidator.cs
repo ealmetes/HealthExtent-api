@@ -8,8 +8,10 @@ public class WriteAuditRequestValidator : AbstractValidator<WriteAuditRequest>
     public WriteAuditRequestValidator()
     {
         RuleFor(x => x.TenantKey)
-            .GreaterThan(0)
-            .WithMessage("TenantKey must be greater than 0");
+            .NotEmpty()
+            .WithMessage("TenantKey is required")
+            .MaximumLength(64)
+            .WithMessage("TenantKey cannot exceed 64 characters");
 
         RuleFor(x => x.MessageControlId)
             .NotEmpty()
