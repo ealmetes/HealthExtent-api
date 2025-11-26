@@ -65,13 +65,13 @@ export function Sidebar() {
     >
       <div className="flex flex-col h-full overflow-y-auto scrollbar-hide">
         {/* Logo/Brand */}
-        <div className="flex items-center px-6 py-6 border-b border-[#2A2A2A]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#00E676] to-[#00C965] rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
+        <div className="flex items-center px-6 py-0 border-b border-[#2A2A2A]">
+          <div className="flex items-center gap-0">
+            <img
+              src="/logo.svg"
+              alt="HealthExtent"
+              className="w-20 h-20"
+            />
             <div>
               <h1 className="text-lg font-bold text-white">HealthExtent</h1>
               <p className="text-xs text-[#888888]">Provider Portal</p>

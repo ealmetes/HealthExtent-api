@@ -1,0 +1,72 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Gradients for 3D effect on loops -->
+    <linearGradient id="pinkLoop3D" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF1694;stop-opacity:1" />
+      <stop offset="30%" style="stop-color:#E91E8C;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#C7177D;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#A0125F;stop-opacity:1" />
+    </linearGradient>
+
+    <linearGradient id="cyanLoop3D" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#0066FF;stop-opacity:1" />
+      <stop offset="30%" style="stop-color:#0088FF;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#00AAFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00D9FF;stop-opacity:1" />
+    </linearGradient>
+
+    <linearGradient id="navyLoop3D" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#003D99;stop-opacity:1" />
+      <stop offset="30%" style="stop-color:#0055BB;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#0066DD;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0077FF;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Shadow/depth effects -->
+    <filter id="shadow3D" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="8"/>
+      <feOffset dx="4" dy="8" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.3"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- 3D Interlocking Loops Symbol - Centered -->
+  <g transform="translate(256, 256)" filter="url(#shadow3D)">
+
+    <!-- Pink/Magenta Loop (bottom-left to top-right) -->
+    <path d="M -90,-75 Q -120,-105 -135,-75 Q -150,-45 -120,-15 L 60,105 Q 90,135 120,120 Q 150,105 135,75 Q 120,45 90,30 L -90,-75 Z"
+          fill="url(#pinkLoop3D)"
+          opacity="0.95"/>
+
+    <!-- Darker inner shadow for depth on pink loop -->
+    <path d="M -82,-68 Q -105,-90 -112,-68 Q -120,-45 -105,-30 L 52,90 Q 75,112 97,102 Q 112,93 102,75 Q 93,57 75,45 L -82,-68 Z"
+          fill="#A0125F"
+          opacity="0.3"/>
+
+    <!-- Cyan Loop (top-left to bottom-right) -->
+    <path d="M -105,60 Q -135,75 -127,105 Q -120,135 -90,135 L 90,30 Q 120,15 135,-15 Q 150,-45 127,-67 Q 105,-90 75,-82 L -105,60 Z"
+          fill="url(#cyanLoop3D)"
+          opacity="0.95"/>
+
+    <!-- Highlight for 3D effect on cyan loop -->
+    <path d="M -90,63 Q -112,75 -108,97 Q -104,117 -82,120 L 75,37 Q 97,27 109,-7 Q 120,-33 105,-52 Q 90,-72 67,-67 L -90,63 Z"
+          fill="#00D9FF"
+          opacity="0.25"/>
+
+    <!-- Navy/Dark Blue Loop (center, weaving through) -->
+    <path d="M 0,-120 Q 30,-142 60,-127 Q 90,-112 82,-82 L 15,75 Q 0,105 -30,112 Q -60,120 -75,90 Q -90,60 -75,30 L 0,-120 Z"
+          fill="url(#navyLoop3D)"
+          opacity="0.95"/>
+
+    <!-- Navy loop shadow for depth -->
+    <path d="M 7,-112 Q 30,-127 52,-117 Q 72,-105 67,-82 L 12,67 Q 0,90 -22,94 Q -45,99 -57,78 Q -69,57 -57,37 L 7,-112 Z"
+          fill="#003D99"
+          opacity="0.4"/>
+  </g>
+</svg>
