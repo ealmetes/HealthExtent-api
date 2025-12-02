@@ -100,6 +100,7 @@ else
 
 // Register services
 builder.Services.AddScoped<IHealthExtentService, HealthExtentService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // CORS
 builder.Services.AddCors(options =>

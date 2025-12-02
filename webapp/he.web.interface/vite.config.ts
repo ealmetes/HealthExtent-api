@@ -12,10 +12,11 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    // Proxy enabled for production API - avoids CORS issues during development
+    // Proxy enabled for local API during development - avoids CORS issues
+    // Change target to Azure container for remote testing
     proxy: {
       '/api': {
-        target: 'http://he-api-dev-eus2.eastus2.azurecontainer.io:8080',
+        target: 'http://localhost:5129',
         changeOrigin: true,
         secure: false,
       },

@@ -1,0 +1,26 @@
+{
+  "ConnectionStrings": {
+    "HealthExtentDb": "Server=localhost;Database=HealthExtentDb;User ID=sa;Password=your_password;TrustServerCertificate=True"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning",
+      "Microsoft.EntityFrameworkCore": "Information"
+    }
+  },
+  "Jwt": {
+    "Issuer": "https://healthextent.com",
+    "Audience": "https://healthextent.com",
+    "SecretKey": "your-secure-secret-key-here-minimum-32-characters-long-for-security"
+  },
+  "Email": {
+    "SmtpHost": "smtp.gmail.com",
+    "SmtpPort": "587",
+    "SmtpUser": "your-email@gmail.com",
+    "SmtpPassword": "your-app-password",
+    "FromEmail": "noreply@healthextent.co",
+    "FromName": "HealthExtent Contact Form"
+  },
+  "AllowedHosts": "*"
+}

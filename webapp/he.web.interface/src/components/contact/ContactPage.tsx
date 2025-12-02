@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { apiClient } from '@/lib/api-client';
 
 export function ContactPage() {
   const [formData, setFormData] = useState({
@@ -24,24 +25,38 @@ export function ContactPage() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulate form submission
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    setIsSubmitting(false);
-    setIsSubmitted(true);
-
-    // Reset form after 3 seconds
-    setTimeout(() => {
-      setIsSubmitted(false);
-      setFormData({
-        name: '',
-        email: '',
-        organization: '',
-        phone: '',
-        subject: '',
-        message: '',
+    try {
+      // Submit form to API
+      await apiClient.submitContactForm({
+        name: formData.name,
+        email: formData.email,
+        organization: formData.organization,
+        phone: formData.phone,
+        subject: formData.subject,
+        message: formData.message,
       });
-    }, 3000);
+
+      setIsSubmitting(false);
+      setIsSubmitted(true);
+
+      // Reset form after 3 seconds
+      setTimeout(() => {
+        setIsSubmitted(false);
+        setFormData({
+          name: '',
+          email: '',
+          organization: '',
+          phone: '',
+          subject: '',
+          message: '',
+        });
+      }, 3000);
+    } catch (error) {
+      console.error('Error submitting contact form:', error);
+      setIsSubmitting(false);
+      // Show error message to user
+      alert('There was an error submitting your message. Please try again or email us directly at ealmetes@gmail.com');
+    }
   };
 
   return (
@@ -96,7 +111,7 @@ export function ContactPage() {
                 </svg>
               </div>
               <h3 className="text-white font-semibold mb-1">Email</h3>
-              <p className="text-[#888888] text-sm">info@healthextent.com</p>
+              <p className="text-[#888888] text-sm">ealmetes@gmail.com</p>
             </div>
 
             <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-6 text-center">

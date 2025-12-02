@@ -1095,6 +1095,30 @@ if (filters?.mrn || filters?.givenName || filters?.familyName) {
       };
     });
   }
+
+  // Contact Form
+  async submitContactForm(data: {
+    name: string;
+    email: string;
+    organization?: string;
+    phone?: string;
+    subject: string;
+    message: string;
+  }): Promise<{ success: boolean; message?: string }> {
+    const response = await this.client.post<{ success: boolean; message?: string }>(
+      '/api/contact/submit',
+      {
+        Name: data.name,
+        Email: data.email,
+        Organization: data.organization || '',
+        Phone: data.phone || '',
+        Subject: data.subject,
+        Message: data.message,
+        RecipientEmail: 'ealmetes@gmail.com',
+      }
+    );
+    return response.data;
+  }
 }
 
 export const apiClient = new ApiClient();
