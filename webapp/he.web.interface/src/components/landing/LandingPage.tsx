@@ -17,7 +17,7 @@ export function LandingPage() {
             </div>
             <div className="flex items-center space-x-4">
               <Link
-                to="/contact"
+                to="/login"
                 className="px-4 py-2 text-sm text-[#E0E0E0] hover:text-white transition-colors"
               >
                 Sign In
