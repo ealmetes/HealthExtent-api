@@ -1119,6 +1119,29 @@ if (filters?.mrn || filters?.givenName || filters?.familyName) {
     );
     return response.data;
   }
+
+  async sendInvitation(data: {
+    email: string;
+    inviterName: string;
+    organizationName: string;
+    role: string;
+  }): Promise<{ success: boolean; message?: string }> {
+    const response = await this.client.post<{ Success: boolean; Message?: string }>(
+      '/api/invitation/send',
+      {
+        Email: data.email,
+        InviterName: data.inviterName,
+        OrganizationName: data.organizationName,
+        Role: data.role,
+        InviteUrl: `${window.location.origin}/login`,
+      }
+    );
+    return {
+      success: response.data.Success,
+      message: response.data.Message,
+    };
+  }
 }
+
 
 export const apiClient = new ApiClient();

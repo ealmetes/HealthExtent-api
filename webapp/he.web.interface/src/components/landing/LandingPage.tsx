@@ -17,7 +17,7 @@ export function LandingPage() {
             </div>
             <div className="flex items-center space-x-4">
               <Link
-                to="/login"
+                to="/contact"
                 className="px-4 py-2 text-sm text-[#E0E0E0] hover:text-white transition-colors"
               >
                 Sign In
@@ -53,10 +53,10 @@ export function LandingPage() {
               Start Free Trial
             </Link>
             <Link
-              to="/login"
+              to="/contact"
               className="px-8 py-4 text-lg border-2 border-[#2A2A2A] text-white rounded-lg hover:border-indigo-500 hover:bg-indigo-500/10 transition-all"
             >
-              Watch Demo
+              Request Demo
             </Link>
           </div>
         </div>
@@ -332,15 +332,15 @@ export function LandingPage() {
           {[
             {
               quote: "HealthExtent has transformed our TCM program. We've reduced readmissions by 30% and our team is more efficient than ever.",
-              author: "Dr. Sarah Johnson",
+              author: "Dr. Paul Preste",
               role: "Chief Medical Officer",
-              organization: "Metropolitan Health ACO",
+              organization: "Preste Medical Center",
             },
             {
               quote: "The automated workflows and real-time alerts ensure we never miss a critical patient follow-up. It's been a game-changer.",
-              author: "Michael Chen",
-              role: "Director of Care Management",
-              organization: "Regional Medical Center",
+              author: "Mark Wiacek",
+              role: "Chief Technology Officer",
+              organization: "White Wilson Medical Center",
             },
             {
               quote: "Implementation was seamless, and the support team has been incredible. We're now capturing TCM revenue we were previously missing.",
@@ -395,7 +395,7 @@ export function LandingPage() {
                   Today, we serve hundreds of healthcare organizations across the country, helping them improve patient outcomes, reduce costs, and streamline their transitional care management programs.
                 </p>
               </div>
-              <div className="mt-8 grid grid-cols-3 gap-6">
+              {/* <div className="mt-8 grid grid-cols-3 gap-6">
                 <div>
                   <div className="text-3xl font-bold text-white mb-1">500+</div>
                   <div className="text-[#888888] text-sm">Healthcare Organizations</div>
@@ -408,7 +408,7 @@ export function LandingPage() {
                   <div className="text-3xl font-bold text-white mb-1">25%</div>
                   <div className="text-[#888888] text-sm">Avg. Readmission Reduction</div>
                 </div>
-              </div>
+              </div> */}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-6">

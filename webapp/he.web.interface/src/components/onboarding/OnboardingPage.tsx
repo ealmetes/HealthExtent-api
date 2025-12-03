@@ -55,7 +55,7 @@ export function OnboardingPage() {
     <div className="min-h-screen flex items-center justify-center bg-[#121212] px-4">
       <div className="max-w-2xl w-full">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-4">
           <div className="inline-flex items-center justify-center w-20 h-20 mb-4">
             <img
               src="/logo.svg"
@@ -63,8 +63,11 @@ export function OnboardingPage() {
               className="w-20 h-20"
             />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">
-            Welcome to HealthExtent Provider Portal
+          <h1 className="text-3xl font-bold text-white mb-0">
+            Welcome to HealthExtent
+          </h1>
+             <h1 className="text-2xl font-bold text-[#FF9800]">
+            TCM Interface
           </h1>
           <p className="text-[#888888]">
             {user?.email}
@@ -140,20 +143,17 @@ export function OnboardingPage() {
           ) : (
             // User has no invitations - can create own organization
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-[#3D5AFE]/10 rounded-full mb-4">
+              {/* <div className="inline-flex items-center justify-center w-16 h-16 bg-[#3D5AFE]/10 rounded-full mb-4">
                 <svg className="w-8 h-8 text-[#3D5AFE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
-              </div>
+              </div> */}
 
               <h2 className="text-2xl font-semibold text-white mb-3">
                 Get Started
               </h2>
 
-              <p className="text-[#E0E0E0] mb-6">
-                Create your organization account to start managing patient care transitions, discharge summaries, and healthcare data.
-              </p>
-
+   
               {/* Features List */}
               <div className="bg-[#242832] border border-[#2A2A2A] rounded-lg p-6 mb-6 text-left">
                 <h3 className="text-sm font-medium text-[#888888] mb-4">What you'll get</h3>
@@ -204,27 +204,41 @@ export function OnboardingPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <div className="text-left">
-                    <h4 className="text-sm font-medium text-[#3D5AFE] mb-1">Already part of an organization?</h4>
-                    <p className="text-sm text-[#E0E0E0]">
-                      If you're joining an existing organization, ask your administrator to send you an invitation. After receiving the invitation, sign out and sign back in to activate your membership.
+                    <h4 className="text-sm font-medium text-[#3D5AFE] mb-2">Already part of an organization?</h4>
+                    <p className="text-sm text-[#E0E0E0] mb-3">
+                      If you're joining an existing organization, follow these steps:
                     </p>
+                    <ol className="text-sm text-[#E0E0E0] space-y-2 list-decimal list-inside">
+                      <li><strong>Sign out</strong> of your current session.</li>
+                      <li><strong>Contact your administrator</strong> to request an invitation (if not already done).</li>
+                      <li>Once the invitation email arrives, <strong>open the email</strong> and <strong>click the link</strong> provided.</li>
+                      <li>The link will take you to the login page. <strong>log in to activate your membership</strong> and complete the setup.</li>
+                    </ol>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-3">
+                         <button
+                  onClick={handleLogout}
+                  className="w-full px-6 py-3 border border-[#2A2A2A] text-[#E0E0E0] rounded-lg hover:bg-white/5 transition-colors"
+                >
+                  Sign Out
+                </button>
+                   <h2 className="text-2xl font-normal text-white mb-3">
+                Or
+              </h2>
+                         <p className="text-[#E0E0E0] mb-6">
+                Create your organization account to start managing patient care transitions, discharge summaries, and healthcare data.
+              </p>
+
                 <button
                   onClick={handleCreateAccount}
                   className="w-full px-6 py-3 bg-[#6200EA] text-white rounded-lg hover:bg-[#7C4DFF] transition-colors font-medium"
                 >
                   Create New Organization Account
                 </button>
-                <button
-                  onClick={handleLogout}
-                  className="w-full px-6 py-3 border border-[#2A2A2A] text-[#E0E0E0] rounded-lg hover:bg-white/5 transition-colors"
-                >
-                  Sign Out
-                </button>
+       
               </div>
             </div>
           )}
@@ -243,3 +257,5 @@ export function OnboardingPage() {
     </div>
   );
 }
+
+

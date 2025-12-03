@@ -4,6 +4,7 @@ import { getTenantMembers, inviteMember, getCurrentUserMember, deleteMember, del
 import type { MemberHP } from '@/services/members-service';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { ErrorAlert } from '@/components/shared/ErrorAlert';
+import { apiClient } from '@/lib/api-client';
 
 interface Member {
   id: string;
@@ -108,6 +109,19 @@ export function MembersSettings() {
       setError(null);
 
       await inviteMember(inviteEmail, tenantKey, inviteRole);
+
+      // Send invitation email
+      try {
+        await apiClient.sendInvitation({
+          email: inviteEmail,
+          inviterName: user?.name || user?.email || 'Your colleague',
+          organizationName: 'HealthExtent',
+          role: inviteRole,
+        });
+      } catch (emailError) {
+        console.warn('Failed to send invitation email:', emailError);
+        // Continue even if email fails - the Firebase invitation was created
+      }
 
       setSuccessMessage(`Invitation sent to ${inviteEmail}`);
 

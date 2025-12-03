@@ -5,4 +5,5 @@ namespace HealthExtent.Api.Services;
 public interface IEmailService
 {
     Task<bool> SendContactFormEmailAsync(ContactFormRequest request);
+    Task<bool> SendInvitationEmailAsync(InvitationRequest request);
 }
