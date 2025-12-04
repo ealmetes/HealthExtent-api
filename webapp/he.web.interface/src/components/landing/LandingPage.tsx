@@ -501,8 +501,7 @@ export function LandingPage() {
               <ul className="space-y-2 text-sm text-[#888888]">
                 <li><Link to="/features" className="hover:text-white transition-colors">Features</Link></li>
                 <li><Link to="/contact" className="hover:text-white transition-colors">Pricing</Link></li>
-                <li><Link to="/contact" className="hover:text-white transition-colors">Integrations</Link></li>
-                <li><Link to="/contact" className="hover:text-white transition-colors">API</Link></li>
+                <li><Link to="/developers" className="hover:text-white transition-colors">Developers</Link></li>
               </ul>
             </div>
 
@@ -533,6 +532,8 @@ export function LandingPage() {
     </div>
   );
 }
+
+
 
 
 
