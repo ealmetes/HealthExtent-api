@@ -499,7 +499,7 @@ export function LandingPage() {
             <div>
               <h4 className="text-white font-semibold mb-4">Product</h4>
               <ul className="space-y-2 text-sm text-[#888888]">
-                <li><a href="#" className="hover:text-white transition-colors">Features</a></li>
+                <li><Link to="/features" className="hover:text-white transition-colors">Features</Link></li>
                 <li><Link to="/contact" className="hover:text-white transition-colors">Pricing</Link></li>
                 <li><Link to="/contact" className="hover:text-white transition-colors">Integrations</Link></li>
                 <li><Link to="/contact" className="hover:text-white transition-colors">API</Link></li>
@@ -520,7 +520,6 @@ export function LandingPage() {
               <ul className="space-y-2 text-sm text-[#888888]">
                 <li><Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link></li>
                 <li><Link to="/terms" className="hover:text-white transition-colors">Terms</Link></li>
-                <li><a href="#" className="hover:text-white transition-colors">Security</a></li>
                 <li><Link to="/hipaa" className="hover:text-white transition-colors">HIPAA</Link></li>
               </ul>
             </div>
@@ -534,6 +533,7 @@ export function LandingPage() {
     </div>
   );
 }
+
 
 
 
