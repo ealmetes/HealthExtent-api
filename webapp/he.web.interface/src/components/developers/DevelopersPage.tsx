@@ -104,7 +104,7 @@ export function DevelopersPage() {
           <p className="text-[#E0E0E0] mb-6">HealthExtent integrates with:</p>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            {['Epic', 'Cerner', 'Meditech', 'Athenahealth', 'eClinicalWorks', 'NextGen', 'Dentrix (medical-dental integrations)', 'Allscripts', 'Hospital ADT feeds (HL7 2.x)', 'Any FHIR-enabled system'].map((system, idx) => (
+            {['Epic', 'Cerner', 'Meditech', 'Athenahealth', 'eClinicalWorks', 'NextGen', 'Greenway', 'Allscripts', 'Hospital ADT feeds (HL7 2.x)', 'Any FHIR-enabled system'].map((system, idx) => (
               <div key={idx} className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-4 flex items-center gap-3 hover:border-indigo-500 transition-colors">
                 <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded flex items-center justify-center flex-shrink-0">
                   <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -166,6 +166,11 @@ export function DevelopersPage() {
                     <td className="px-6 py-4 text-sm font-medium text-indigo-400">Readmission Detection</td>
                     <td className="px-6 py-4 text-sm text-[#888888]">Internal logic</td>
                     <td className="px-6 py-4 text-sm text-[#E0E0E0]">Automatic matching of admissions occurring within 30 days.</td>
+                  </tr>
+                  <tr className="hover:bg-[#252525] transition-colors">
+                    <td className="px-6 py-4 text-sm font-medium text-indigo-400">Procedures</td>
+                    <td className="px-6 py-4 text-sm text-[#888888]">HL7 Feed / API</td>
+                    <td className="px-6 py-4 text-sm text-[#E0E0E0]">Clinical procedures and interventions performed during encounter.</td>
                   </tr>
                 </tbody>
               </table>
