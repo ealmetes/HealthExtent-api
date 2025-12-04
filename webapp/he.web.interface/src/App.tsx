@@ -7,6 +7,7 @@ import { PrivacyPage } from './components/legal/PrivacyPage';
 import { HipaaPage } from './components/legal/HipaaPage';
 import { FeaturesPage } from './components/features/FeaturesPage';
 import { DevelopersPage } from './components/developers/DevelopersPage';
+import { AboutPage } from './components/about/AboutPage';
 import { LoginPage } from './components/auth/LoginPage';
 import { SignupPage } from './components/auth/SignupPage';
 import { OnboardingPage } from './components/onboarding/OnboardingPage';
@@ -54,6 +55,7 @@ function App() {
             <Route path="/hipaa" element={<HipaaPage />} />
             <Route path="/features" element={<FeaturesPage />} />
             <Route path="/developers" element={<DevelopersPage />} />
+            <Route path="/about" element={<AboutPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
@@ -93,6 +95,7 @@ function App() {
 }
 
 export default App;
+
 
 
 
