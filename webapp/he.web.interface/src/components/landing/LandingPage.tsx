@@ -521,7 +521,7 @@ export function LandingPage() {
                 <li><Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link></li>
                 <li><Link to="/terms" className="hover:text-white transition-colors">Terms</Link></li>
                 <li><a href="#" className="hover:text-white transition-colors">Security</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">HIPAA</a></li>
+                <li><Link to="/hipaa" className="hover:text-white transition-colors">HIPAA</Link></li>
               </ul>
             </div>
           </div>
@@ -534,5 +534,6 @@ export function LandingPage() {
     </div>
   );
 }
+
 
 

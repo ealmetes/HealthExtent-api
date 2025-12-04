@@ -4,6 +4,7 @@ import { LandingPage } from './components/landing/LandingPage';
 import { ContactPage } from './components/contact/ContactPage';
 import { TermsPage } from './components/legal/TermsPage';
 import { PrivacyPage } from './components/legal/PrivacyPage';
+import { HipaaPage } from './components/legal/HipaaPage';
 import { LoginPage } from './components/auth/LoginPage';
 import { SignupPage } from './components/auth/SignupPage';
 import { OnboardingPage } from './components/onboarding/OnboardingPage';
@@ -48,6 +49,7 @@ function App() {
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/hipaa" element={<HipaaPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
@@ -87,6 +89,7 @@ function App() {
 }
 
 export default App;
+
 
 
 
