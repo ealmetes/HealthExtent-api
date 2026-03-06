@@ -9,8 +9,6 @@ import { getTenantMembers, type MemberHP } from '@/services/members-service';
 import { useFirebaseAuth } from '@/hooks/useFirebaseAuth';
 import { KpiCard } from './KpiCard';
 import { TodaysWorkloadPanel } from './TodaysWorkloadPanel';
-import { OverdueAlertsCard } from './OverdueAlertsCard';
-import type { OverdueAlert } from '@/types/dashboard';
 
 
 export function DashboardHome() {
@@ -21,7 +19,6 @@ export function DashboardHome() {
   // Accordion state - all panels open by default
   const [expandedPanels, setExpandedPanels] = useState({
     workload: true,
-    alerts: true,
     metrics: true,
     charts: true,
     transitions: true,
@@ -311,95 +308,6 @@ export function DashboardHome() {
     };
   }, [careTransitions?.data, encounters?.data]);
 
-  // Calculate overdue alerts
-  const overdueAlerts = useMemo(() => {
-    const now = new Date();
-    const alerts: OverdueAlert[] = [];
-
-    // Helper function to get patient name safely (using same pattern as Recent Care Transitions table)
-    const getPatientName = (item: any): string => {
-      // Use the exact same pattern that works in the Recent Care Transitions table
-      const patientKey = item.patientKey || item.PatientKey;
-      const patientName = item.patient.firstName + " " + item.patient.lastName
-      return patientName || (patientKey ? `Patient ${patientKey}` : 'Unknown Patient');
-    };
-
-    // Helper function to generate unique alert ID even when key is undefined
-    const generateUniqueId = (type: string, key: string | undefined, patientKey: string | undefined, index: number): string => {
-      if (key) return `${type}-${key}`;
-      // Fallback: use patientKey + index to ensure uniqueness
-      const fallbackKey = patientKey || `unknown-${index}`;
-      return `${type}-${fallbackKey}-${index}`;
-    };
-
-    // Overdue outreach
-    const overdueOutreach = careTransitions?.data?.filter((ct) => {
-      if (!ct.nextOutreachDate || ct.status === 'Closed') return false;
-      return parseISO(ct.nextOutreachDate) < now;
-    }) || [];
-
-    overdueOutreach.forEach((ct, index) => {
-      const outreachDate = parseISO(ct.nextOutreachDate!);
-      const daysOverdue = Math.floor((now.getTime() - outreachDate.getTime()) / (1000 * 60 * 60 * 24));
-
-      alerts.push({
-        id: generateUniqueId('outreach', ct.careTransitionKey, ct.patientKey, index),
-        type: 'outreach',
-        patientName: getPatientName(ct),
-        daysOverdue,
-        details: `Outreach was due ${format(outreachDate, 'MMM dd, yyyy')}`,
-      });
-    });
-
-    // Overdue follow-ups (>14 days since discharge)
-    const overdueFollowups = encounters?.data?.filter((enc) => {
-      const dischargeDate = enc.dischargeDateTime || enc.dischargeDate;
-      if (!dischargeDate) return false;
-      const discharge = parseISO(dischargeDate);
-      const daysSinceDischarge = Math.floor((now.getTime() - discharge.getTime()) / (1000 * 60 * 60 * 24));
-      return daysSinceDischarge > 14;
-    }) || [];
-
-    overdueFollowups.forEach((enc, index) => {
-      const dischargeDateStr = enc.dischargeDateTime || enc.dischargeDate;
-      const dischargeDate = parseISO(dischargeDateStr!);
-      const daysOverdue = Math.floor((now.getTime() - dischargeDate.getTime()) / (1000 * 60 * 60 * 24)) - 14;
-      alerts.push({
-        id: generateUniqueId('followup', enc.encounterKey, enc.patientKey, index),
-        type: 'followup',
-        patientName: getPatientName(enc),
-        daysOverdue,
-        details: `Discharged ${format(dischargeDate, 'MMM dd, yyyy')}`,
-      });
-    });
-
-    // Readmissions needing review
-    const thirtyDaysAgo = new Date(now);
-    thirtyDaysAgo.setDate(now.getDate() - 30);
-    const readmissions = encounters?.data?.filter((enc) => {
-      const isReadmitted = enc.visitStatus?.toUpperCase() === 'READMITTED' || enc.visitStatus?.toUpperCase() === 'R';
-      const admissionDate = enc.admitDateTime || enc.admissionDate;
-      if (!isReadmitted || !admissionDate) return false;
-      const admitDate = parseISO(admissionDate);
-      return admitDate >= thirtyDaysAgo && admitDate <= now;
-    }) || [];
-
-    readmissions.forEach((enc, index) => {
-      const admissionDateStr = enc.admitDateTime || enc.admissionDate;
-      const admitDate = parseISO(admissionDateStr!);
-      const daysAgo = Math.floor((now.getTime() - admitDate.getTime()) / (1000 * 60 * 60 * 24));
-      alerts.push({
-        id: generateUniqueId('readmission', enc.encounterKey, enc.patientKey, index),
-        type: 'readmission',
-        patientName: getPatientName(enc),
-        daysOverdue: daysAgo,
-        details: `Readmitted ${format(admitDate, 'MMM dd, yyyy')}`,
-      });
-    });
-
-    // Sort by days overdue (most urgent first)
-    return alerts.sort((a, b) => b.daysOverdue - a.daysOverdue);
-  }, [careTransitions?.data, encounters?.data]);
 
   if (isLoadingCT || isLoadingEnc) {
     return <LoadingSpinner />;
@@ -442,53 +350,6 @@ export function DashboardHome() {
               onFollowupsClick={() => navigate('/app/care-transitions?filter=followup-due')}
               onHighRiskClick={() => navigate('/app/discharge-summaries?filter=high-risk')}
               onTcmOverdueClick={() => navigate('/app/care-transitions?filter=tcm-overdue')}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Overdue Alerts */}
-      <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg overflow-hidden">
-        <button
-          onClick={() => togglePanel('alerts')}
-          className="w-full px-6 py-4 flex items-center justify-between hover:bg-[#252525] transition-colors"
-        >
-          <h3 className="text-lg font-semibold text-white">Overdue Alerts</h3>
-          <svg
-            className={`w-5 h-5 text-[#888888] transition-transform ${expandedPanels.alerts ? 'rotate-180' : ''}`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        {expandedPanels.alerts && (
-          <div className="p-6 pt-0">
-            <OverdueAlertsCard
-              overdueOutreachCount={overdueAlerts.filter(a => a.type === 'outreach').length}
-              overdueFollowupCount={overdueAlerts.filter(a => a.type === 'followup').length}
-              readmissionsNeedingReview={overdueAlerts.filter(a => a.type === 'readmission').length}
-              tcmOverdueCount={overdueAlerts.filter(a => a.type === 'tcm').length}
-              alerts={overdueAlerts}
-              onViewAll={() => navigate('/app/care-transitions?filter=overdue')}
-              onAlertClick={(alert) => {
-                // Extract the key from alert ID
-                const idParts = alert.id.split('-');
-                const key = idParts[1];
-
-                // Only navigate if we have a valid key (not a fallback ID)
-                if (!key || key === 'unknown' || idParts.length > 2) {
-                  console.warn('Cannot navigate: Invalid or missing record key for alert', alert);
-                  return;
-                }
-
-                if (alert.type === 'outreach' || alert.type === 'tcm') {
-                  navigate(`/app/care-transitions/${key}`);
-                } else if (alert.type === 'followup' || alert.type === 'readmission') {
-                  navigate(`/app/discharge-summaries/${key}`);
-                }
-              }}
             />
           </div>
         )}

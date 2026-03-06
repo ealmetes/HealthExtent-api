@@ -202,42 +202,52 @@ export function CareTransitionsList() {
     }
   };
 
-  const sortedData = data?.data ? [...data.data].sort((a, b) => {
-    if (!sortField) return 0;
+  const sortedData = data?.data ? [...data.data]
+    // Filter out Closed items unless explicitly filtering by Closed status
+    .filter((ct) => {
+      // If status filter is explicitly set to "Closed", show Closed items
+      if (filters.status === 'Closed') {
+        return true;
+      }
+      // Otherwise, exclude Closed items
+      return ct.status !== 'Closed';
+    })
+    .sort((a, b) => {
+      if (!sortField) return 0;
 
-    const direction = sortDirection === 'asc' ? 1 : -1;
+      const direction = sortDirection === 'asc' ? 1 : -1;
 
-    switch (sortField) {
-      case 'patient':
-        return direction * (a.patient?.name || '').localeCompare(b.patient?.name || '');
-      case 'hospital':
-        return direction * (a.hospital?.hospitalName || a.encounter?.location || '').localeCompare(b.hospital?.hospitalName || b.encounter?.location || '');
-      case 'discharge':
-        const aDate = a.encounter?.dischargeDateTime ? new Date(a.encounter.dischargeDateTime).getTime() : 0;
-        const bDate = b.encounter?.dischargeDateTime ? new Date(b.encounter.dischargeDateTime).getTime() : 0;
-        return direction * (aDate - bDate);
-      case 'tcm':
-        const aTcm = a.tcmSchedule1 ? new Date(a.tcmSchedule1).getTime() : 0;
-        const bTcm = b.tcmSchedule1 ? new Date(b.tcmSchedule1).getTime() : 0;
-        return direction * (aTcm - bTcm);
-      case 'outreach':
-        const aOutreach = a.nextOutreachDate ? new Date(a.nextOutreachDate).getTime() : 0;
-        const bOutreach = b.nextOutreachDate ? new Date(b.nextOutreachDate).getTime() : 0;
-        return direction * (aOutreach - bOutreach);
-      case 'priority':
-        const priorityOrder = { High: 3, Medium: 2, Low: 1 };
-        return direction * (priorityOrder[a.priority] - priorityOrder[b.priority]);
-      case 'risk':
-        const riskOrder = { High: 3, Medium: 2, Low: 1 };
-        return direction * (riskOrder[a.riskTier] - riskOrder[b.riskTier]);
-      case 'status':
-        return direction * a.status.localeCompare(b.status);
-      case 'attempts':
-        return direction * (a.outreachAttempts - b.outreachAttempts);
-      default:
-        return 0;
-    }
-  }) : [];
+      switch (sortField) {
+        case 'patient':
+          return direction * (a.patient?.name || '').localeCompare(b.patient?.name || '');
+        case 'hospital':
+          return direction * (a.hospital?.hospitalName || a.encounter?.location || '').localeCompare(b.hospital?.hospitalName || b.encounter?.location || '');
+        case 'discharge':
+          const aDate = a.encounter?.dischargeDateTime ? new Date(a.encounter.dischargeDateTime).getTime() : 0;
+          const bDate = b.encounter?.dischargeDateTime ? new Date(b.encounter.dischargeDateTime).getTime() : 0;
+          return direction * (aDate - bDate);
+        case 'tcm':
+          const aTcm = a.tcmSchedule1 ? new Date(a.tcmSchedule1).getTime() : 0;
+          const bTcm = b.tcmSchedule1 ? new Date(b.tcmSchedule1).getTime() : 0;
+          return direction * (aTcm - bTcm);
+        case 'outreach':
+          const aOutreach = a.nextOutreachDate ? new Date(a.nextOutreachDate).getTime() : 0;
+          const bOutreach = b.nextOutreachDate ? new Date(b.nextOutreachDate).getTime() : 0;
+          return direction * (aOutreach - bOutreach);
+        case 'priority':
+          const priorityOrder = { High: 3, Medium: 2, Low: 1 };
+          return direction * (priorityOrder[a.priority] - priorityOrder[b.priority]);
+        case 'risk':
+          const riskOrder = { High: 3, Medium: 2, Low: 1 };
+          return direction * (riskOrder[a.riskTier] - riskOrder[b.riskTier]);
+        case 'status':
+          return direction * a.status.localeCompare(b.status);
+        case 'attempts':
+          return direction * (a.outreachAttempts - b.outreachAttempts);
+        default:
+          return 0;
+      }
+    }) : [];
 
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) {

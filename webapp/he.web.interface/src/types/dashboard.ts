@@ -28,6 +28,8 @@ export interface OverdueAlert {
   patientName: string;
   daysOverdue: number;
   details: string;
+  recordKey?: string; // The key to navigate to (careTransitionKey or encounterKey)
+  patientKey?: string; // Fallback patient key for navigation
 }
 
 export interface OverdueAlertsProps {
